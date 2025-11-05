@@ -6,7 +6,8 @@ const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
+const GEMINI_API_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
 
 export type DomainClassification = {
   domain: string;
@@ -122,9 +123,7 @@ export function detectSuspiciousPatterns(
 
   // Pattern: Multiple off-task domains while supposedly working
   if (offTaskDomains.length >= 3) {
-    patterns.push(
-      `${offTaskDomains.length} off-task domains active in background`
-    );
+    patterns.push(`${offTaskDomains.length} off-task domains active in background`);
   }
 
   // Pattern: Social media while on work site
@@ -142,17 +141,13 @@ export function detectSuspiciousPatterns(
     (c) => c.category === "video" || c.domain.includes("youtube") || c.domain.includes("twitch")
   );
   if (videoDomains.length > 0) {
-    patterns.push(
-      `Video streaming detected: ${videoDomains.map((d) => d.domain).join(", ")}`
-    );
+    patterns.push(`Video streaming detected: ${videoDomains.map((d) => d.domain).join(", ")}`);
   }
 
   // Pattern: Shopping while working
   const shoppingDomains = offTaskDomains.filter((c) => c.category === "shopping");
   if (shoppingDomains.length > 0) {
-    patterns.push(
-      `Shopping activity detected: ${shoppingDomains.map((d) => d.domain).join(", ")}`
-    );
+    patterns.push(`Shopping activity detected: ${shoppingDomains.map((d) => d.domain).join(", ")}`);
   }
 
   return patterns;

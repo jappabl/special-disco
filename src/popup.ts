@@ -50,10 +50,7 @@ function formatUrl(url: string): string {
  */
 function updateUI(snapshot: ScreenSnapshot) {
   // Update status indicator
-  statusIndicator.className = `status-indicator ${snapshot.state.replace(
-    "_",
-    "-"
-  )}`;
+  statusIndicator.className = `status-indicator ${snapshot.state.replace("_", "-")}`;
 
   if (snapshot.state === "on_task") {
     statusText.textContent = "On Task ✓";
@@ -62,8 +59,7 @@ function updateUI(snapshot: ScreenSnapshot) {
   }
 
   // Update stats
-  currentState.textContent =
-    snapshot.state === "on_task" ? "Focused" : "Distracted";
+  currentState.textContent = snapshot.state === "on_task" ? "Focused" : "Distracted";
   confidence.textContent = `${Math.round(snapshot.confidence * 100)}%`;
 
   // Update details
@@ -83,9 +79,7 @@ function updateUI(snapshot: ScreenSnapshot) {
     if (snapshot.context.visualVerification?.recommendation === "focus") {
       alertMessage.textContent = `Focus Alert: ${snapshot.context.visualVerification.detectedContent}`;
     } else if (snapshot.context.suspiciousPatterns?.length) {
-      alertMessage.textContent = snapshot.context.suspiciousPatterns.join(
-        ", "
-      );
+      alertMessage.textContent = snapshot.context.suspiciousPatterns.join(", ");
     }
   } else {
     alertSection.classList.add("hidden");

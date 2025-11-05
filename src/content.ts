@@ -34,10 +34,10 @@ function playAlarmSound() {
       oscillator.type = "square";
       oscillator.frequency.value = 2000;
       oscillator.start();
-      setTimeout(() => oscillator.frequency.value = 800, 100);
-      setTimeout(() => oscillator.frequency.value = 2000, 200);
-      setTimeout(() => oscillator.frequency.value = 800, 300);
-      setTimeout(() => oscillator.frequency.value = 2000, 400);
+      setTimeout(() => (oscillator.frequency.value = 800), 100);
+      setTimeout(() => (oscillator.frequency.value = 2000), 200);
+      setTimeout(() => (oscillator.frequency.value = 800), 300);
+      setTimeout(() => (oscillator.frequency.value = 2000), 400);
       setTimeout(() => oscillator.stop(), 700);
       break;
 
@@ -45,9 +45,9 @@ function playAlarmSound() {
       oscillator.type = "sawtooth";
       oscillator.frequency.value = 500;
       oscillator.start();
-      setTimeout(() => oscillator.frequency.value = 1200, 150);
-      setTimeout(() => oscillator.frequency.value = 500, 300);
-      setTimeout(() => oscillator.frequency.value = 1200, 450);
+      setTimeout(() => (oscillator.frequency.value = 1200), 150);
+      setTimeout(() => (oscillator.frequency.value = 500), 300);
+      setTimeout(() => (oscillator.frequency.value = 1200), 450);
       setTimeout(() => oscillator.stop(), 700);
       break;
 
@@ -55,12 +55,12 @@ function playAlarmSound() {
       oscillator.type = "square";
       oscillator.frequency.value = 1800;
       oscillator.start();
-      setTimeout(() => gainNode.gain.value = 0, 60);
-      setTimeout(() => gainNode.gain.value = 1.0, 80);
-      setTimeout(() => gainNode.gain.value = 0, 140);
-      setTimeout(() => gainNode.gain.value = 1.0, 160);
-      setTimeout(() => gainNode.gain.value = 0, 220);
-      setTimeout(() => gainNode.gain.value = 1.0, 240);
+      setTimeout(() => (gainNode.gain.value = 0), 60);
+      setTimeout(() => (gainNode.gain.value = 1.0), 80);
+      setTimeout(() => (gainNode.gain.value = 0), 140);
+      setTimeout(() => (gainNode.gain.value = 1.0), 160);
+      setTimeout(() => (gainNode.gain.value = 0), 220);
+      setTimeout(() => (gainNode.gain.value = 1.0), 240);
       setTimeout(() => oscillator.stop(), 700);
       break;
 
@@ -68,10 +68,10 @@ function playAlarmSound() {
       oscillator.type = "sawtooth";
       oscillator.frequency.value = 2400;
       oscillator.start();
-      setTimeout(() => oscillator.frequency.value = 1800, 100);
-      setTimeout(() => oscillator.frequency.value = 1200, 200);
-      setTimeout(() => oscillator.frequency.value = 600, 300);
-      setTimeout(() => oscillator.frequency.value = 300, 400);
+      setTimeout(() => (oscillator.frequency.value = 1800), 100);
+      setTimeout(() => (oscillator.frequency.value = 1200), 200);
+      setTimeout(() => (oscillator.frequency.value = 600), 300);
+      setTimeout(() => (oscillator.frequency.value = 300), 400);
       setTimeout(() => oscillator.stop(), 700);
       break;
 
@@ -79,14 +79,14 @@ function playAlarmSound() {
       oscillator.type = "square";
       oscillator.frequency.value = 1500;
       oscillator.start();
-      setTimeout(() => gainNode.gain.value = 0, 50);
-      setTimeout(() => gainNode.gain.value = 1.0, 70);
-      setTimeout(() => gainNode.gain.value = 0, 120);
-      setTimeout(() => gainNode.gain.value = 1.0, 140);
-      setTimeout(() => gainNode.gain.value = 0, 190);
-      setTimeout(() => gainNode.gain.value = 1.0, 210);
-      setTimeout(() => gainNode.gain.value = 0, 260);
-      setTimeout(() => gainNode.gain.value = 1.0, 280);
+      setTimeout(() => (gainNode.gain.value = 0), 50);
+      setTimeout(() => (gainNode.gain.value = 1.0), 70);
+      setTimeout(() => (gainNode.gain.value = 0), 120);
+      setTimeout(() => (gainNode.gain.value = 1.0), 140);
+      setTimeout(() => (gainNode.gain.value = 0), 190);
+      setTimeout(() => (gainNode.gain.value = 1.0), 210);
+      setTimeout(() => (gainNode.gain.value = 0), 260);
+      setTimeout(() => (gainNode.gain.value = 1.0), 280);
       setTimeout(() => oscillator.stop(), 700);
       break;
 
@@ -94,10 +94,10 @@ function playAlarmSound() {
       oscillator.type = "square";
       oscillator.frequency.value = 1800;
       oscillator.start();
-      setTimeout(() => oscillator.frequency.value = 600, 120);
-      setTimeout(() => oscillator.frequency.value = 1800, 240);
-      setTimeout(() => oscillator.frequency.value = 600, 360);
-      setTimeout(() => oscillator.frequency.value = 1800, 480);
+      setTimeout(() => (oscillator.frequency.value = 600), 120);
+      setTimeout(() => (oscillator.frequency.value = 1800), 240);
+      setTimeout(() => (oscillator.frequency.value = 600), 360);
+      setTimeout(() => (oscillator.frequency.value = 1800), 480);
       setTimeout(() => oscillator.stop(), 700);
       break;
 
@@ -105,12 +105,12 @@ function playAlarmSound() {
       oscillator.type = "sawtooth";
       oscillator.frequency.value = 1000;
       oscillator.start();
-      setTimeout(() => oscillator.frequency.value = 1600, 80);
-      setTimeout(() => oscillator.frequency.value = 800, 160);
-      setTimeout(() => oscillator.frequency.value = 1800, 240);
-      setTimeout(() => oscillator.frequency.value = 600, 320);
-      setTimeout(() => oscillator.frequency.value = 2000, 400);
-      setTimeout(() => oscillator.frequency.value = 500, 480);
+      setTimeout(() => (oscillator.frequency.value = 1600), 80);
+      setTimeout(() => (oscillator.frequency.value = 800), 160);
+      setTimeout(() => (oscillator.frequency.value = 1800), 240);
+      setTimeout(() => (oscillator.frequency.value = 600), 320);
+      setTimeout(() => (oscillator.frequency.value = 2000), 400);
+      setTimeout(() => (oscillator.frequency.value = 500), 480);
       setTimeout(() => oscillator.stop(), 700);
       break;
   }
@@ -443,16 +443,14 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
     const shouldTriggerAlert =
       snapshot.state === "off_task" &&
       snapshot.confidence >= 0.8 &&
-      (
-        // Trigger immediately for known distracting categories
-        snapshot.context?.appCategory === "social" ||
+      // Trigger immediately for known distracting categories
+      (snapshot.context?.appCategory === "social" ||
         snapshot.context?.appCategory === "sports" ||
         snapshot.context?.appCategory === "games" ||
         snapshot.context?.appCategory === "shopping" ||
         snapshot.context?.appCategory === "video" ||
         // OR if vision verification confirms off-task
-        snapshot.context?.visualVerification?.recommendation === "focus"
-      );
+        snapshot.context?.visualVerification?.recommendation === "focus");
 
     if (shouldTriggerAlert) {
       console.log("[Content Script] ⚠️⚠️⚠️ OFF-TASK DETECTED - TRIGGERING NUCLEAR ALERT ⚠️⚠️⚠️");

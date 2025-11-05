@@ -1,127 +1,127 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <meta charset="UTF-8">
-  <title>Focus Tracker - Analytics Dashboard</title>
-  <link rel="stylesheet" href="analyticsPage.css">
-</head>
-<body>
-  <div class="dashboard-container">
-    <header class="dashboard-header">
-      <h1>📊 Focus Analytics Dashboard</h1>
-      <div class="header-controls">
-        <select id="time-period" class="time-selector">
-          <option value="7">Last 7 Days</option>
-          <option value="30">Last 30 Days</option>
-          <option value="90">Last 90 Days</option>
-          <option value="365">Last Year</option>
-        </select>
-        <button id="clear-data-btn" class="btn btn-danger-outline">Clear All Data</button>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Focus Tracker - Analytics Dashboard</title>
+    <link rel="stylesheet" href="analyticsPage.css" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <header class="dashboard-header">
+        <h1>📊 Focus Analytics Dashboard</h1>
+        <div class="header-controls">
+          <select id="time-period" class="time-selector">
+            <option value="7">Last 7 Days</option>
+            <option value="30">Last 30 Days</option>
+            <option value="90">Last 90 Days</option>
+            <option value="365">Last Year</option>
+          </select>
+          <button id="clear-data-btn" class="btn btn-danger-outline">Clear All Data</button>
+        </div>
+      </header>
+
+      <!-- Loading State -->
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Loading your analytics...</p>
       </div>
-    </header>
 
-    <!-- Loading State -->
-    <div id="loading" class="loading">
-      <div class="spinner"></div>
-      <p>Loading your analytics...</p>
+      <!-- No Data State -->
+      <div id="no-data" class="no-data hidden">
+        <div class="no-data-icon">📭</div>
+        <h2>No Data Yet</h2>
+        <p>Start browsing and your analytics will appear here!</p>
+      </div>
+
+      <!-- Dashboard Content -->
+      <div id="dashboard-content" class="hidden">
+        <!-- Overview Cards -->
+        <section class="overview-section">
+          <div class="stat-card-large">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-content">
+              <div class="stat-label">Total Time Tracked</div>
+              <div class="stat-value" id="total-time">--</div>
+            </div>
+          </div>
+
+          <div class="stat-card-large success">
+            <div class="stat-icon">✓</div>
+            <div class="stat-content">
+              <div class="stat-label">On-Task Time</div>
+              <div class="stat-value" id="on-task-time">--</div>
+              <div class="stat-subtext" id="on-task-percentage">--</div>
+            </div>
+          </div>
+
+          <div class="stat-card-large danger">
+            <div class="stat-icon">⚠</div>
+            <div class="stat-content">
+              <div class="stat-label">Off-Task Time</div>
+              <div class="stat-value" id="off-task-time">--</div>
+              <div class="stat-subtext" id="off-task-percentage">--</div>
+            </div>
+          </div>
+
+          <div class="stat-card-large warning">
+            <div class="stat-icon">🔔</div>
+            <div class="stat-content">
+              <div class="stat-label">Total Alerts</div>
+              <div class="stat-value" id="total-alerts">--</div>
+              <div class="stat-subtext" id="avg-alerts-per-day">--</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Productivity Insights -->
+        <section class="insights-section">
+          <h2 class="section-title">⚡ Productivity Insights</h2>
+          <div class="insights-grid">
+            <div class="insight-card">
+              <div class="insight-label">Most Productive Hour</div>
+              <div class="insight-value" id="most-productive-hour">--</div>
+            </div>
+            <div class="insight-card">
+              <div class="insight-label">Least Productive Hour</div>
+              <div class="insight-value" id="least-productive-hour">--</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Top Off-Task Domains -->
+        <section class="domains-section">
+          <h2 class="section-title">🌐 Top Off-Task Domains</h2>
+          <div class="domains-list" id="domains-list">
+            <!-- Populated by JavaScript -->
+          </div>
+        </section>
+
+        <!-- Top Distractions -->
+        <section class="distractions-section">
+          <h2 class="section-title">🎯 Most Common Distractions</h2>
+          <div class="distractions-list" id="distractions-list">
+            <!-- Populated by JavaScript -->
+          </div>
+        </section>
+
+        <!-- Category Breakdown -->
+        <section class="categories-section">
+          <h2 class="section-title">📂 Activity by Category</h2>
+          <div class="categories-list" id="categories-list">
+            <!-- Populated by JavaScript -->
+          </div>
+        </section>
+
+        <!-- Daily Stats -->
+        <section class="daily-section">
+          <h2 class="section-title">📅 Daily Breakdown</h2>
+          <div class="daily-list" id="daily-list">
+            <!-- Populated by JavaScript -->
+          </div>
+        </section>
+      </div>
     </div>
 
-    <!-- No Data State -->
-    <div id="no-data" class="no-data hidden">
-      <div class="no-data-icon">📭</div>
-      <h2>No Data Yet</h2>
-      <p>Start browsing and your analytics will appear here!</p>
-    </div>
-
-    <!-- Dashboard Content -->
-    <div id="dashboard-content" class="hidden">
-      <!-- Overview Cards -->
-      <section class="overview-section">
-        <div class="stat-card-large">
-          <div class="stat-icon">⏱️</div>
-          <div class="stat-content">
-            <div class="stat-label">Total Time Tracked</div>
-            <div class="stat-value" id="total-time">--</div>
-          </div>
-        </div>
-
-        <div class="stat-card-large success">
-          <div class="stat-icon">✓</div>
-          <div class="stat-content">
-            <div class="stat-label">On-Task Time</div>
-            <div class="stat-value" id="on-task-time">--</div>
-            <div class="stat-subtext" id="on-task-percentage">--</div>
-          </div>
-        </div>
-
-        <div class="stat-card-large danger">
-          <div class="stat-icon">⚠</div>
-          <div class="stat-content">
-            <div class="stat-label">Off-Task Time</div>
-            <div class="stat-value" id="off-task-time">--</div>
-            <div class="stat-subtext" id="off-task-percentage">--</div>
-          </div>
-        </div>
-
-        <div class="stat-card-large warning">
-          <div class="stat-icon">🔔</div>
-          <div class="stat-content">
-            <div class="stat-label">Total Alerts</div>
-            <div class="stat-value" id="total-alerts">--</div>
-            <div class="stat-subtext" id="avg-alerts-per-day">--</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Productivity Insights -->
-      <section class="insights-section">
-        <h2 class="section-title">⚡ Productivity Insights</h2>
-        <div class="insights-grid">
-          <div class="insight-card">
-            <div class="insight-label">Most Productive Hour</div>
-            <div class="insight-value" id="most-productive-hour">--</div>
-          </div>
-          <div class="insight-card">
-            <div class="insight-label">Least Productive Hour</div>
-            <div class="insight-value" id="least-productive-hour">--</div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Top Off-Task Domains -->
-      <section class="domains-section">
-        <h2 class="section-title">🌐 Top Off-Task Domains</h2>
-        <div class="domains-list" id="domains-list">
-          <!-- Populated by JavaScript -->
-        </div>
-      </section>
-
-      <!-- Top Distractions -->
-      <section class="distractions-section">
-        <h2 class="section-title">🎯 Most Common Distractions</h2>
-        <div class="distractions-list" id="distractions-list">
-          <!-- Populated by JavaScript -->
-        </div>
-      </section>
-
-      <!-- Category Breakdown -->
-      <section class="categories-section">
-        <h2 class="section-title">📂 Activity by Category</h2>
-        <div class="categories-list" id="categories-list">
-          <!-- Populated by JavaScript -->
-        </div>
-      </section>
-
-      <!-- Daily Stats -->
-      <section class="daily-section">
-        <h2 class="section-title">📅 Daily Breakdown</h2>
-        <div class="daily-list" id="daily-list">
-          <!-- Populated by JavaScript -->
-        </div>
-      </section>
-    </div>
-  </div>
-
-  <script type="module" src="analyticsPage.ts"></script>
-</body>
+    <script type="module" src="analyticsPage.ts"></script>
+  </body>
 </html>

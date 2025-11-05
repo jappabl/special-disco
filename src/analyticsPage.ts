@@ -92,7 +92,8 @@ async function renderDashboard(daysBack: number = 7) {
     // Render top off-task domains
     domainsListEl.innerHTML = "";
     if (summary.topOffTaskDomains.length === 0) {
-      domainsListEl.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">No off-task domains detected yet!</p>';
+      domainsListEl.innerHTML =
+        '<p style="color: #888; text-align: center; padding: 20px;">No off-task domains detected yet!</p>';
     } else {
       summary.topOffTaskDomains.forEach((domain, index) => {
         const domainItem = document.createElement("div");
@@ -111,7 +112,8 @@ async function renderDashboard(daysBack: number = 7) {
     // Render top distractions
     distractionsListEl.innerHTML = "";
     if (summary.topDistractions.length === 0) {
-      distractionsListEl.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">No distractions detected yet!</p>';
+      distractionsListEl.innerHTML =
+        '<p style="color: #888; text-align: center; padding: 20px;">No distractions detected yet!</p>';
     } else {
       summary.topDistractions.forEach((distraction, index) => {
         const distractionItem = document.createElement("div");
@@ -129,7 +131,8 @@ async function renderDashboard(daysBack: number = 7) {
     // Render category breakdown
     categoriesListEl.innerHTML = "";
     if (summary.categoryBreakdown.length === 0) {
-      categoriesListEl.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">No category data available yet!</p>';
+      categoriesListEl.innerHTML =
+        '<p style="color: #888; text-align: center; padding: 20px;">No category data available yet!</p>';
     } else {
       summary.categoryBreakdown.forEach((category) => {
         const categoryItem = document.createElement("div");
@@ -148,7 +151,8 @@ async function renderDashboard(daysBack: number = 7) {
     // Render daily stats
     dailyListEl.innerHTML = "";
     if (summary.dailyStats.length === 0) {
-      dailyListEl.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">No daily data available yet!</p>';
+      dailyListEl.innerHTML =
+        '<p style="color: #888; text-align: center; padding: 20px;">No daily data available yet!</p>';
     } else {
       summary.dailyStats.forEach((day) => {
         const totalDayTime = day.onTaskTime + day.offTaskTime;
@@ -158,7 +162,7 @@ async function renderDashboard(daysBack: number = 7) {
         dailyItem.className = "daily-item";
         dailyItem.innerHTML = `
           <div class="daily-info">
-            <div class="daily-date">${new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+            <div class="daily-date">${new Date(day.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
             <div class="daily-stats">
               ${formatTime(day.onTaskTime)} on-task (${onTaskPercent.toFixed(0)}%) •
               ${formatTime(day.offTaskTime)} off-task •

@@ -79,7 +79,7 @@ const OFF_TASK_CATEGORIES: Set<AppCategory> = new Set([
   "games",
   "shopping",
   "sports", // STOP WATCHING BASKETBALL
-  "news",   // News is distraction too
+  "news", // News is distraction too
 ]);
 
 /**
@@ -143,11 +143,7 @@ export function determineScreenState(
 /**
  * Builds a complete ScreenSnapshot from active tab info and idle state
  */
-export function buildScreenSnapshot(
-  url: string,
-  title: string,
-  idleMs: number
-): ScreenSnapshot {
+export function buildScreenSnapshot(url: string, title: string, idleMs: number): ScreenSnapshot {
   const category = categorizeUrl(url);
   const { state, confidence } = determineScreenState(category, idleMs);
 

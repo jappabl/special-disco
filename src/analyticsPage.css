@@ -105,7 +105,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading p {
@@ -157,7 +159,9 @@ body {
   display: flex;
   gap: 20px;
   align-items: center;
-  transition: transform 0.2s, border-color 0.2s;
+  transition:
+    transform 0.2s,
+    border-color 0.2s;
 }
 
 .stat-card-large:hover {
@@ -249,17 +253,26 @@ body {
 }
 
 /* Domains Section */
-.domains-section, .distractions-section, .categories-section, .daily-section {
+.domains-section,
+.distractions-section,
+.categories-section,
+.daily-section {
   margin-bottom: 40px;
 }
 
-.domains-list, .distractions-list, .categories-list, .daily-list {
+.domains-list,
+.distractions-list,
+.categories-list,
+.daily-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.domain-item, .distraction-item, .category-item, .daily-item {
+.domain-item,
+.distraction-item,
+.category-item,
+.daily-item {
   background: #1a1a1a;
   border: 2px solid #333;
   border-radius: 8px;
@@ -270,27 +283,40 @@ body {
   transition: border-color 0.2s;
 }
 
-.domain-item:hover, .distraction-item:hover, .category-item:hover, .daily-item:hover {
+.domain-item:hover,
+.distraction-item:hover,
+.category-item:hover,
+.daily-item:hover {
   border-color: #555;
 }
 
-.domain-info, .distraction-info, .category-info, .daily-info {
+.domain-info,
+.distraction-info,
+.category-info,
+.daily-info {
   flex: 1;
 }
 
-.domain-name, .distraction-name, .category-name, .daily-date {
+.domain-name,
+.distraction-name,
+.category-name,
+.daily-date {
   font-size: 16px;
   font-weight: 600;
   color: #fff;
   margin-bottom: 4px;
 }
 
-.domain-stats, .category-stats, .daily-stats {
+.domain-stats,
+.category-stats,
+.daily-stats {
   font-size: 13px;
   color: #888;
 }
 
-.domain-time, .distraction-count, .category-time {
+.domain-time,
+.distraction-count,
+.category-time {
   font-size: 20px;
   font-weight: 700;
   color: #8b5cf6;
@@ -309,7 +335,8 @@ body {
     flex-direction: column;
   }
 
-  .time-selector, .btn {
+  .time-selector,
+  .btn {
     width: 100%;
   }
 

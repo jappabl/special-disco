@@ -36,10 +36,7 @@ class NetworkTracker {
       const domain = urlObj.hostname;
 
       // Skip Chrome internals and extensions
-      if (
-        domain.startsWith("chrome") ||
-        url.startsWith("chrome-extension://")
-      ) {
+      if (domain.startsWith("chrome") || url.startsWith("chrome-extension://")) {
         return;
       }
 
@@ -63,7 +60,7 @@ class NetworkTracker {
       if (now - this.lastCleanup > TRACKING_WINDOW_MS) {
         this.cleanup();
       }
-    } catch (error) {
+    } catch (_error) {
       // Invalid URL, ignore
     }
   }
@@ -99,9 +96,7 @@ class NetworkTracker {
   /**
    * Runs AI classification on current domains (throttled)
    */
-  async classifyCurrentDomains(
-    activeTabUrl: string
-  ): Promise<{
+  async classifyCurrentDomains(activeTabUrl: string): Promise<{
     classifications: DomainClassification[];
     patterns: string[];
     offTaskDomains: string[];
@@ -121,10 +116,7 @@ class NetworkTracker {
     // Throttle AI calls (only every 60s)
     if (now - this.lastAIClassification < AI_CLASSIFICATION_INTERVAL_MS) {
       // Return cached results
-      const patterns = detectSuspiciousPatterns(
-        this.cachedClassifications,
-        activeTabUrl
-      );
+      const patterns = detectSuspiciousPatterns(this.cachedClassifications, activeTabUrl);
       const offTaskDomains = this.cachedClassifications
         .filter((c) => c.isOffTask)
         .map((c) => c.domain);
@@ -140,9 +132,7 @@ class NetworkTracker {
     try {
       // Filter out the active tab domain (we already know about it)
       const activeTabDomain = new URL(activeTabUrl).hostname;
-      const domainsToClassify = snapshot.domains.filter(
-        (d) => d !== activeTabDomain
-      );
+      const domainsToClassify = snapshot.domains.filter((d) => d !== activeTabDomain);
 
       if (domainsToClassify.length === 0) {
         return {
@@ -152,22 +142,15 @@ class NetworkTracker {
         };
       }
 
-      console.log(
-        `[Network Tracker] Classifying ${domainsToClassify.length} domains with AI`
-      );
+      console.log(`[Network Tracker] Classifying ${domainsToClassify.length} domains with AI`);
 
-      const classifications = await classifyDomainsWithAI(
-        domainsToClassify,
-        activeTabUrl
-      );
+      const classifications = await classifyDomainsWithAI(domainsToClassify, activeTabUrl);
 
       this.cachedClassifications = classifications;
       this.lastAIClassification = now;
 
       const patterns = detectSuspiciousPatterns(classifications, activeTabUrl);
-      const offTaskDomains = classifications
-        .filter((c) => c.isOffTask)
-        .map((c) => c.domain);
+      const offTaskDomains = classifications.filter((c) => c.isOffTask).map((c) => c.domain);
 
       return {
         classifications,

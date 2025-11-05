@@ -57,10 +57,7 @@ export function dataUrlToBase64(dataUrl: string): string {
  * Resizes an image to reduce API payload size (optional optimization)
  * Returns a new data URL with the resized image
  */
-export async function resizeImage(
-  dataUrl: string,
-  maxWidth: number = 1280
-): Promise<string> {
+export async function resizeImage(dataUrl: string, maxWidth: number = 1280): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {

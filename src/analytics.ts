@@ -116,13 +116,10 @@ export async function recordAlert(url: string, reason: string): Promise<void> {
   }
 }
 
-
 /**
  * Generates analytics summary from stored data
  */
-export async function generateAnalyticsSummary(
-  daysBack: number = 7
-): Promise<AnalyticsSummary> {
+export async function generateAnalyticsSummary(daysBack: number = 7): Promise<AnalyticsSummary> {
   const { analytics = [], alertHistory = [] } = await chrome.storage.local.get([
     "analytics",
     "alertHistory",
@@ -133,7 +130,10 @@ export async function generateAnalyticsSummary(
   const recentAlerts = alertHistory.filter((a: any) => a.timestamp >= cutoffTime);
 
   // Calculate totals
-  const totalTimeTracked = recentEntries.reduce((sum: number, e: AnalyticsEntry) => sum + e.duration, 0);
+  const totalTimeTracked = recentEntries.reduce(
+    (sum: number, e: AnalyticsEntry) => sum + e.duration,
+    0
+  );
   const onTaskTime = recentEntries
     .filter((e: AnalyticsEntry) => e.state === "on_task")
     .reduce((sum: number, e: AnalyticsEntry) => sum + e.duration, 0);
@@ -276,9 +276,7 @@ export async function generateAnalyticsSummary(
     categoryBreakdown,
     totalAlerts: alertHistory.length,
     alertsThisWeek: recentAlerts.length,
-    averageAlertsPerDay: dailyStats.length > 0
-      ? recentAlerts.length / dailyStats.length
-      : 0,
+    averageAlertsPerDay: dailyStats.length > 0 ? recentAlerts.length / dailyStats.length : 0,
     longestOnTaskStreak: 0, // TODO: Calculate
     currentStreak: 0, // TODO: Calculate
     mostProductiveHour,
