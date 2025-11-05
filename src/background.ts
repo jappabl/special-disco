@@ -212,9 +212,9 @@ async function captureAndSendSnapshot() {
         weightedScore = 0.95; // Fixed 95% confidence
         finalState = "off_task";
         console.log(`[Background] 🚩 AUTO-FLAGGED DOMAIN OVERRIDE: ${currentDomain}
-  Vision said: ${visionResult.isOffTask ? "Off-task" : "On-task"} (${(visionConfidence * 100).toFixed(1)}%)
-  Override: AUTO-FLAGGED domains are always off-task
-  Final: OFF-TASK (95% confidence)`);
+Vision said: ${visionResult.isOffTask ? "Off-task" : "On-task"} (${(visionConfidence * 100).toFixed(1)}%)
+Override: AUTO-FLAGGED domains are always off-task
+Final: OFF-TASK (95% confidence)`);
       } else {
         // Normal weighted scoring for non-auto-flagged domains
         weightedScore = visionConfidence * VISION_WEIGHT + domainConfidence * DOMAIN_WEIGHT;
