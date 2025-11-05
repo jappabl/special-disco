@@ -102,7 +102,7 @@ Everything runs **locally in your browser** — no cloud recording, no uploads, 
 ## 🧠 Core Concepts
 
 - **AttentionSnapshot:** from webcam  
-  `{ state: 'awake' | 'drowsy', confidence, ear, blinkRate, headPitchDeg }`
+  `{ state: 'awake' | 'noddingOff' | 'sleeping', confidence, ear, eyesClosedSec, headPitchDeg }`
 - **ScreenSnapshot:** from extension  
   `{ state: 'on_task' | 'off_task', confidence, activeUrl, idleMs, category }`
 - **Fusion logic:** combines both snapshots → overall focus state
