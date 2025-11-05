@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Focus Tracker</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Focus Tracker</h1>
+        <div id="status-indicator" class="status-indicator unknown">
+          <span class="status-dot"></span>
+          <span id="status-text">Loading...</span>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-label">Current State</div>
+          <div id="current-state" class="stat-value">--</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Confidence</div>
+          <div id="confidence" class="stat-value">--</div>
+        </div>
+      </div>
+
+      <div class="details">
+        <div class="detail-item">
+          <span class="detail-label">Active Tab:</span>
+          <span id="active-url" class="detail-value">--</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Background Domains:</span>
+          <span id="bg-domains" class="detail-value">--</span>
+        </div>
+
+        <div class="detail-item">
+          <span class="detail-label">Requests (30s):</span>
+          <span id="request-count" class="detail-value">--</span>
+        </div>
+      </div>
+
+      <div id="alert-section" class="alert-section hidden">
+        <div class="alert-icon">⚠️</div>
+        <div id="alert-message" class="alert-message"></div>
+      </div>
+
+      <div class="footer">
+        <button id="refresh-btn" class="btn">Refresh</button>
+        <span id="last-update" class="last-update">Last update: --</span>
+      </div>
+
+      <div class="settings-section">
+        <div class="session-context-section">
+          <div class="section-title">What are you working on?</div>
+          <div class="current-task" id="current-task">Not set</div>
+          <button id="set-task-btn" class="btn btn-task">Set Task</button>
+        </div>
+
+        <button id="analytics-btn" class="btn btn-analytics">📊 View Analytics</button>
+        <button id="disable-btn" class="btn btn-danger">Disable Extension</button>
+        <button id="enable-btn" class="btn btn-success hidden">Re-enable Extension</button>
+      </div>
+    </div>
+
+    <!-- Session Context Modal -->
+    <div id="task-modal" class="task-modal hidden">
+      <div class="task-modal-content">
+        <h2>What are you working on?</h2>
+        <p class="task-instructions">
+          Declare your current work task so the AI can accurately detect off-task behavior based on
+          your actual context. Leave blank to use default productivity context.
+        </p>
+
+        <div class="task-input-section">
+          <label for="task-input">Current work task (optional):</label>
+          <input
+            type="text"
+            id="task-input"
+            class="task-input"
+            placeholder='e.g., "Working on Python project", "Shopping for furniture" (or leave blank)'
+          />
+        </div>
+
+        <div class="task-examples">
+          <strong>Examples:</strong>
+          <ul>
+            <li>"Working on React front-end project"</li>
+            <li>"Writing research paper on climate change"</li>
+            <li>"Shopping for office furniture"</li>
+            <li>"Learning machine learning algorithms"</li>
+          </ul>
+        </div>
+
+        <div class="task-actions">
+          <button id="submit-task" class="btn btn-primary">Set Task</button>
+          <button id="cancel-task" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Puzzle Challenge Modal -->
+    <div id="puzzle-modal" class="puzzle-modal hidden">
+      <div class="puzzle-modal-content">
+        <h2>Prove You're Not Procrastinating</h2>
+        <p class="puzzle-instructions">
+          Solve <span id="puzzles-remaining">10</span> puzzles to disable the extension
+        </p>
+
+        <div class="puzzle-display">
+          <div class="puzzle-type-badge" id="puzzle-type">MATH</div>
+          <div class="puzzle-question" id="puzzle-question">What is 2 + 2?</div>
+        </div>
+
+        <input type="text" id="puzzle-answer" class="puzzle-input" placeholder="Your answer" />
+        <div id="puzzle-feedback" class="puzzle-feedback"></div>
+
+        <div class="puzzle-actions">
+          <button id="submit-puzzle" class="btn btn-primary">Submit</button>
+          <button id="cancel-puzzles" class="btn">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="popup.ts"></script>
+  </body>
+</html>

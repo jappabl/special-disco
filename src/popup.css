@@ -1,0 +1,528 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 400px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+.container {
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #333;
+}
+
+h1 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.status-indicator.on-task {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.status-indicator.off-task {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.status-indicator.unknown {
+  background: rgba(156, 163, 175, 0.15);
+  color: #9ca3af;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  background: #252525;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.details {
+  background: #252525;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  margin-bottom: 12px;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+}
+
+.detail-item:not(:last-child) {
+  border-bottom: 1px solid #333;
+}
+
+.detail-label {
+  color: #888;
+  font-weight: 500;
+}
+
+.detail-value {
+  color: #e0e0e0;
+  text-align: right;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vision-section {
+  background: #1e293b;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 10px;
+}
+
+.vision-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vision-item {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #cbd5e1;
+}
+
+.vision-item strong {
+  color: #e2e8f0;
+}
+
+.alert-section {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.alert-icon {
+  font-size: 20px;
+}
+
+.alert-message {
+  font-size: 13px;
+  color: #fca5a5;
+  line-height: 1.4;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #333;
+}
+
+.btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn:hover {
+  background: #2563eb;
+}
+
+.btn:active {
+  background: #1d4ed8;
+}
+
+.last-update {
+  font-size: 11px;
+  color: #666;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.settings-section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #333;
+}
+
+.session-context-section {
+  background: #252525;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #333;
+  margin-bottom: 12px;
+}
+
+.current-task {
+  font-size: 14px;
+  color: #3b82f6;
+  margin: 8px 0 12px 0;
+  padding: 8px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.btn-task {
+  background: #3b82f6;
+  width: 100%;
+}
+
+.btn-danger {
+  background: #dc2626;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
+.btn-danger:active {
+  background: #991b1b;
+}
+
+.btn-success {
+  background: #16a34a;
+  margin-top: 8px;
+}
+
+.btn-success:hover {
+  background: #15803d;
+}
+
+.btn-success:active {
+  background: #166534;
+}
+
+.btn-analytics {
+  background: #8b5cf6;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.btn-analytics:hover {
+  background: #7c3aed;
+}
+
+.btn-analytics:active {
+  background: #6d28d9;
+}
+
+/* Puzzle Modal */
+.puzzle-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.puzzle-modal-content {
+  background: #1a1a1a;
+  border: 2px solid #dc2626;
+  border-radius: 12px;
+  padding: 24px;
+  width: 360px;
+  box-shadow: 0 10px 40px rgba(220, 38, 38, 0.3);
+}
+
+.puzzle-modal-content h2 {
+  font-size: 20px;
+  color: #dc2626;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.puzzle-instructions {
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+
+#puzzles-remaining {
+  color: #dc2626;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.puzzle-display {
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.puzzle-type-badge {
+  display: inline-block;
+  background: rgba(220, 38, 38, 0.2);
+  color: #dc2626;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.puzzle-question {
+  font-size: 18px;
+  color: #fff;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.puzzle-input {
+  width: 100%;
+  background: #252525;
+  border: 2px solid #333;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 16px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.puzzle-input:focus {
+  outline: none;
+  border-color: #dc2626;
+}
+
+.puzzle-feedback {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  min-height: 20px;
+  margin-bottom: 16px;
+}
+
+.puzzle-feedback.correct {
+  color: #22c55e;
+}
+
+.puzzle-feedback.incorrect {
+  color: #dc2626;
+}
+
+.puzzle-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.puzzle-actions .btn {
+  flex: 1;
+}
+
+.btn-primary {
+  background: #dc2626;
+}
+
+.btn-primary:hover {
+  background: #b91c1c;
+}
+
+.btn-primary:active {
+  background: #991b1b;
+}
+
+/* Task Modal */
+.task-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.task-modal-content {
+  background: #1a1a1a;
+  border: 2px solid #3b82f6;
+  border-radius: 12px;
+  padding: 24px;
+  width: 360px;
+  box-shadow: 0 10px 40px rgba(59, 130, 246, 0.3);
+}
+
+.task-modal-content h2 {
+  font-size: 20px;
+  color: #3b82f6;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.task-instructions {
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.task-input-section {
+  margin-bottom: 16px;
+}
+
+.task-input-section label {
+  display: block;
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.task-input {
+  width: 100%;
+  background: #252525;
+  border: 2px solid #333;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.task-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.task-examples {
+  background: #252525;
+  border: 1px solid #333;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 16px;
+  font-size: 12px;
+}
+
+.task-examples strong {
+  color: #94a3b8;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.task-examples ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.task-examples li {
+  color: #cbd5e1;
+  padding: 4px 0;
+  padding-left: 16px;
+  position: relative;
+}
+
+.task-examples li::before {
+  content: "•";
+  position: absolute;
+  left: 4px;
+  color: #3b82f6;
+}
+
+.task-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.task-actions .btn {
+  flex: 1;
+}

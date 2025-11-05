@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Screen Activity Tracker",
+  "version": "1.0.0",
+  "description": "Tracks active tabs and categorizes on-task/off-task behavior",
+  "permissions": [
+    "tabs",
+    "idle",
+    "storage",
+    "webRequest",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content.ts"],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "Focus Tracker"
+  }
+}
