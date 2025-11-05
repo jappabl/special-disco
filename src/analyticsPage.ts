@@ -160,9 +160,18 @@ async function renderDashboard(daysBack: number = 7) {
 
         const dailyItem = document.createElement("div");
         dailyItem.className = "daily-item";
+        const formattedDate = new Date(day.date).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
         dailyItem.innerHTML = `
           <div class="daily-info">
-            <div class="daily-date">${new Date(day.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+            <div class="daily-date">${
+              formattedDate
+            }</div>
+              formattedDate
+            }</div>
             <div class="daily-stats">
               ${formatTime(day.onTaskTime)} on-task (${onTaskPercent.toFixed(0)}%) •
               ${formatTime(day.offTaskTime)} off-task •
