@@ -463,7 +463,7 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
       // Delay alert slightly to avoid spam
       alarmTimeout = setTimeout(() => {
         showOffTaskAlert(snapshot);
-      }, 1000);
+      }, 1000) as unknown as number;
     } else {
       console.log("[Content Script] Alert NOT triggered - conditions not met");
     }

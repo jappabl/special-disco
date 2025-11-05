@@ -193,7 +193,7 @@ loadSessionContext();
 refreshBtn.addEventListener("click", loadSnapshot);
 
 // Listen for storage changes (real-time updates)
-chrome.storage.onChanged.addListener((changes, areaName) => {
+chrome.storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
   if (areaName === "local" && changes.lastSnapshot) {
     updateUI(changes.lastSnapshot.newValue);
   }

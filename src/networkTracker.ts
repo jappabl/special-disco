@@ -186,7 +186,7 @@ export const networkTracker = new NetworkTracker();
 export function initNetworkTracking() {
   // Listen to all web requests
   chrome.webRequest.onBeforeRequest.addListener(
-    (details) => {
+    (details): chrome.webRequest.BlockingResponse | undefined => {
       // Only track main_frame, sub_frame, xmlhttprequest, and other document requests
       if (
         details.type === "main_frame" ||
@@ -198,6 +198,7 @@ export function initNetworkTracking() {
       ) {
         networkTracker.recordRequest(details.url);
       }
+      return undefined;
     },
     { urls: ["<all_urls>"] }
   );

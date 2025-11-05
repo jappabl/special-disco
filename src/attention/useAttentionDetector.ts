@@ -279,7 +279,7 @@ export type UseAttentionDetectorResult = {
 };
 
 export function useAttentionDetector(
-  videoRef: React.RefObject<HTMLVideoElement>,
+  videoRef: React.RefObject<HTMLVideoElement | null>,
   isActive: boolean
 ): UseAttentionDetectorResult {
   const [state, setState] = useState<AttentionState>("awake");
