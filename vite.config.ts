@@ -16,8 +16,6 @@ export default defineConfig({
         background: "src/background.ts",
         content: "src/content.ts",
         analytics: "src/analytics.html",
-        camera: "src/camera.html",
-        offscreen: "src/offscreen.html",
       },
     },
   },
