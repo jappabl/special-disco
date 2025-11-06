@@ -45,6 +45,18 @@ function formatUrl(url: string): string {
   return url;
 }
 
+function debounce<T extends (...args: any[]) => void>(fn: T, delay = 150) {
+  let timeoutId: number | undefined;
+  return (...args: Parameters<T>) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    timeoutId = window.setTimeout(() => {
+      fn(...args);
+    }, delay);
+  };
+}
+
 /**
  * Updates the UI with the latest snapshot
  */
@@ -193,9 +205,13 @@ loadSessionContext();
 refreshBtn.addEventListener("click", loadSnapshot);
 
 // Listen for storage changes (real-time updates)
+const debouncedSnapshotUpdate = debounce((snapshot: ScreenSnapshot) => {
+  updateUI(snapshot);
+}, 120);
+
 chrome.storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
-  if (areaName === "local" && changes.lastSnapshot) {
-    updateUI(changes.lastSnapshot.newValue);
+  if (areaName === "local" && changes.lastSnapshot?.newValue) {
+    debouncedSnapshotUpdate(changes.lastSnapshot.newValue as ScreenSnapshot);
   }
 });
 
@@ -207,7 +223,7 @@ const REQUIRED_PUZZLES = 10;
 function showPuzzleModal() {
   puzzleModal.classList.remove("hidden");
   puzzlesSolved = 0;
-  loadNextPuzzle();
+  void loadNextPuzzle();
   puzzleAnswer.focus();
 }
 
@@ -219,15 +235,37 @@ function hidePuzzleModal() {
   puzzleFeedback.className = "puzzle-feedback";
 }
 
-function loadNextPuzzle() {
-  currentPuzzle = generatePuzzle();
-  puzzleType.textContent = currentPuzzle.type.toUpperCase();
-  puzzleQuestion.textContent = currentPuzzle.question;
+async function loadNextPuzzle() {
+  currentPuzzle = null;
   puzzleAnswer.value = "";
   puzzleFeedback.textContent = "";
   puzzleFeedback.className = "puzzle-feedback";
   puzzlesRemaining.textContent = String(REQUIRED_PUZZLES - puzzlesSolved);
-  puzzleAnswer.focus();
+  puzzleType.textContent = "LOADING";
+  puzzleQuestion.textContent = "Generating challenge...";
+  submitPuzzleBtn.setAttribute("disabled", "true");
+
+  try {
+    const puzzle = await generatePuzzle();
+    currentPuzzle = puzzle;
+    puzzleType.textContent = puzzle.type.toUpperCase();
+    puzzleQuestion.textContent = puzzle.question;
+    submitPuzzleBtn.removeAttribute("disabled");
+    puzzleAnswer.focus();
+  } catch (error) {
+    console.error("[Popup] Failed to load puzzle:", error);
+    currentPuzzle = {
+      question: "25 - 9 = ?",
+      answer: "16",
+      type: "math",
+    };
+    puzzleType.textContent = "MATH";
+    puzzleQuestion.textContent = currentPuzzle.question;
+    puzzleFeedback.textContent = "Using fallback puzzle. Continue solving to proceed.";
+    puzzleFeedback.className = "puzzle-feedback incorrect";
+    submitPuzzleBtn.removeAttribute("disabled");
+    puzzleAnswer.focus();
+  }
 }
 
 function checkPuzzleAnswer() {
@@ -253,7 +291,7 @@ function checkPuzzleAnswer() {
     } else {
       // Load next puzzle
       setTimeout(() => {
-        loadNextPuzzle();
+        void loadNextPuzzle();
       }, 800);
     }
   } else {
@@ -343,7 +381,6 @@ if (webTrackingToggle) {
 
     const settings: TrackingSettings = {
       webTrackingEnabled: webTrackingToggle.checked,
-      cameraTrackingEnabled: false, // Camera tracking removed
     };
 
     await saveTrackingSettings(settings);

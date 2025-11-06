@@ -1,5 +1,5 @@
 import { ScreenSnapshot } from "./shared/types";
-import { generatePuzzle } from "./puzzles";
+import { generatePuzzle, type Puzzle } from "./puzzles";
 
 console.log("[Content Script] Loaded");
 
@@ -121,12 +121,22 @@ function playAlarmSound() {
  * @param snapshot - The screen snapshot that triggered the alert
  * @param isDrowsiness - If true, this is a drowsiness alert (don't close tab after solving)
  */
-function showOffTaskAlert(snapshot: ScreenSnapshot, isDrowsiness = false) {
+async function showOffTaskAlert(snapshot: ScreenSnapshot, isDrowsiness = false) {
   // Don't create duplicate alerts
   if (alertElement) return;
 
   // Generate random puzzle for verification
-  const puzzle = generatePuzzle();
+  let puzzle: Puzzle;
+  try {
+    puzzle = await generatePuzzle();
+  } catch (error) {
+    console.error("[Content Script] Failed to load puzzle bank, using fallback math puzzle.", error);
+    puzzle = {
+      question: "12 + 7 = ?",
+      answer: "19",
+      type: "math",
+    };
+  }
   let clickCount = 0;
   const requiredClicks = 10;
 
@@ -534,7 +544,7 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
 
       // Delay alert slightly to avoid spam
       alarmTimeout = setTimeout(() => {
-        showOffTaskAlert(snapshot);
+        void showOffTaskAlert(snapshot);
       }, 1000) as unknown as number;
     } else {
       console.log("[Content Script] Alert NOT triggered - conditions not met");

@@ -4,11 +4,6 @@ import { ScreenSnapshot, SessionContext } from "./shared/types";
 import { captureActiveTab, dataUrlToBase64 } from "./screenshotCapture";
 import { verifyScreenWithVision } from "./aiClassifier";
 import { recordAnalytics, recordAlert, AnalyticsEntry } from "./analytics";
-import {
-  initAttentionDetection,
-  getCurrentAttentionState,
-  isAttentionDetectionActive,
-} from "./attentionDetector";
 
 const POLL_INTERVAL_MS = 30000; // 30 seconds - reduces AI costs significantly
 const IDLE_DETECTION_INTERVAL_SEC = 15; // chrome.idle uses seconds
@@ -22,7 +17,7 @@ let lastPageTitle: string | null = null;
 // Vision throttling - track check count
 let checkCounter = 0;
 
-// Set idle detection interval
+// Set idle detection intervals
 chrome.idle.setDetectionInterval(IDLE_DETECTION_INTERVAL_SEC);
 
 /**
@@ -276,17 +271,6 @@ Final: OFF-TASK (95% confidence)`);
       }
     }
 
-    // ATTENTION: Add attention/drowsiness state if available
-    if (isAttentionDetectionActive()) {
-      const attentionData = getCurrentAttentionState();
-      enhancedSnapshot.context!.attentionState = {
-        state: attentionData.state,
-        confidence: attentionData.metrics.earValue ? 1.0 - attentionData.metrics.earValue / 0.3 : 0.8,
-        metrics: attentionData.metrics,
-        timestamp: attentionData.timestamp,
-      };
-      console.log(`[Background] Added attention state: ${attentionData.state}`);
-    }
 
     // ANALYTICS: Record every snapshot to track focused time continuously
     const currentUrl = activeTab.url;
@@ -433,10 +417,7 @@ chrome.runtime.onMessage.addListener((message, sender, _sendResponse) => {
 // Initialize network tracking
 initNetworkTracking();
 
-// Initialize attention detection
-initAttentionDetection();
-
 // Initial capture on startup
 captureAndSendSnapshot();
 
-console.log("[Background] Service worker started with network tracking and attention detection");
+console.log("[Background] Service worker started with network tracking");

@@ -1,8 +1,15 @@
-import {
-  FaceLandmarker,
-  FilesetResolver,
-  FaceLandmarkerResult,
-} from "@mediapipe/tasks-vision";
+import type { FaceLandmarker, FaceLandmarkerResult } from "@mediapipe/tasks-vision";
+
+type VisionModule = typeof import("@mediapipe/tasks-vision");
+
+let visionModulePromise: Promise<VisionModule> | null = null;
+
+async function loadVisionModule(): Promise<VisionModule> {
+  if (!visionModulePromise) {
+    visionModulePromise = import("@mediapipe/tasks-vision");
+  }
+  return visionModulePromise;
+}
 
 export type Landmark = { x: number; y: number; z?: number };
 
@@ -37,6 +44,26 @@ const RIGHT_EYE_EAR_INDICES = [33, 160, 158, 133, 153, 144];
 
 let faceLandmarker: FaceLandmarker | null = null;
 
+async function createLandmarker(delegate: "GPU" | "CPU"): Promise<FaceLandmarker> {
+  const { FilesetResolver, FaceLandmarker } = await loadVisionModule();
+  const filesetResolver = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+  );
+
+  return FaceLandmarker.createFromOptions(filesetResolver, {
+    baseOptions: {
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      delegate,
+    },
+    runningMode: "VIDEO",
+    numFaces: 1,
+    minFaceDetectionConfidence: 0.5,
+    minFacePresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+}
+
 async function initializeFaceLandmarker(): Promise<FaceLandmarker> {
   if (faceLandmarker) {
     return faceLandmarker;
@@ -45,50 +72,15 @@ async function initializeFaceLandmarker(): Promise<FaceLandmarker> {
   console.log("[FaceLandmarks] Initializing MediaPipe Face Landmarker...");
 
   try {
-    const filesetResolver = await FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-    );
-
-    console.log("[FaceLandmarks] FilesetResolver created, loading model...");
-
-    faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-        delegate: "GPU",
-      },
-      runningMode: "VIDEO",
-      numFaces: 1,
-      minFaceDetectionConfidence: 0.5,
-      minFacePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
-
+    faceLandmarker = await createLandmarker("GPU");
     console.log("[FaceLandmarks] ✓ MediaPipe Face Landmarker initialized successfully!");
     return faceLandmarker;
   } catch (error) {
     console.error("[FaceLandmarks] ❌ Failed to initialize MediaPipe:", error);
 
-    // Try fallback with CPU delegate if GPU fails
     try {
       console.log("[FaceLandmarks] Retrying with CPU delegate...");
-      const filesetResolver = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
-      );
-
-      faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-          delegate: "CPU", // Fallback to CPU
-        },
-        runningMode: "VIDEO",
-        numFaces: 1,
-        minFaceDetectionConfidence: 0.5,
-        minFacePresenceConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
-
+      faceLandmarker = await createLandmarker("CPU");
       console.log("[FaceLandmarks] ✓ MediaPipe initialized with CPU delegate");
       return faceLandmarker;
     } catch (cpuError) {

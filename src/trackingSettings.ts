@@ -1,5 +1,5 @@
 /**
- * Settings management for tracking modes (web + camera)
+ * Settings management for extension tracking modes
  */
 
 import { TrackingSettings } from "./shared/types";
@@ -8,7 +8,6 @@ const SETTINGS_KEY = "trackingSettings";
 
 const DEFAULT_SETTINGS: TrackingSettings = {
   webTrackingEnabled: true, // Screen tracking enabled by default
-  cameraTrackingEnabled: false, // Camera tracking disabled by default (requires permissions)
 };
 
 /**
