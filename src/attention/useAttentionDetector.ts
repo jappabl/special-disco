@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { startFaceTracking, type FaceLandmarks } from "./faceLandmarks";
+import { startPoseTracking, type PoseLandmarks } from "./poseLandmarks";
+import { PostureTracker, computeLeanAngle } from "./postureAnalysis";
 import { computeAverageEAR } from "./ear";
 import { computeHeadTilt, isHeadTilted } from "./headTilt";
 import { computeHeadPitch, HeadNodDetector } from "./headPitch";
@@ -10,6 +12,7 @@ import { computeHorizontalGaze, GazeTracker } from "./gazeDirection";
 import { computeFaceWidth, FaceDistanceTracker } from "./faceDistance";
 import { pushAttention } from "@/fusion/bridge";
 import type { AttentionState, AttentionSnapshot } from "@/types/attention";
+import { speakWarning, cancelVoiceWarning, getWarningForState } from "./voiceWarnings";
 
 // Tunable thresholds (user baseline calibration will adjust some of these)
 const BASE_EAR_THRESHOLD = 0.20; // Fallback EAR threshold if calibration fails
@@ -21,6 +24,47 @@ const HEAD_PITCH_BACK_THRESHOLD = 12; // Backward pitch that indicates lean back
 const FPS = 30; // Detection frame rate (increased for smoother detection)
 const CALIBRATION_DURATION_MS = 4000; // Collect ~4 seconds of neutral pose
 const MIN_CALIBRATION_FRAMES = 90; // Require at least ~3 seconds of data
+
+// Audio alert system
+let audioContext: AudioContext | null = null;
+
+/**
+ * Play alert sound at maximum volume for drowsiness detection
+ */
+function playDrowsinessAlert(isCritical: boolean = false) {
+  if (typeof window === 'undefined') return; // Server-side safety
+
+  if (!audioContext) {
+    audioContext = new AudioContext();
+  }
+
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  // Full volume relative to system
+  gainNode.gain.value = 1.0;
+
+  if (isCritical) {
+    // Critical alert: aggressive pattern for sleeping state
+    oscillator.type = "square";
+    oscillator.frequency.value = 1800;
+    oscillator.start();
+    setTimeout(() => (oscillator.frequency.value = 800), 100);
+    setTimeout(() => (oscillator.frequency.value = 1800), 200);
+    setTimeout(() => (oscillator.frequency.value = 800), 300);
+    setTimeout(() => oscillator.stop(), 500);
+  } else {
+    // Warning alert: gentler pattern for nodding off
+    oscillator.type = "sine";
+    oscillator.frequency.value = 800;
+    oscillator.start();
+    setTimeout(() => (oscillator.frequency.value = 1200), 150);
+    setTimeout(() => oscillator.stop(), 400);
+  }
+}
 
 type CalibrationBaselines = {
   pitch: number;
@@ -265,6 +309,24 @@ export type UseAttentionDetectorResult = {
   isTooClose?: boolean;
   isTooFar?: boolean;
   distanceWarningDuration?: number;
+  // Posture metrics
+  isSlouchingNow?: boolean;
+  isSlouched?: boolean;
+  slouchDuration?: number;
+  leanAngle?: number;
+  isLeaning?: boolean;
+  leanDirection?: "forward" | "backward" | "neutral";
+  leanDuration?: number;
+  bodyPresence?: number;
+  isPresent?: boolean;
+  awayDuration?: number;
+  // Absence alarm
+  absentCountdown?: number;
+  isAbsenceAlarmArmed: boolean;
+  disarmAbsenceAlarm: () => void;
+  // Voice warning system
+  activeWarning?: string | null;
+  // Alarm system
   activeAlarms: AttentionAlarm[];
   alarmPhrase?: string | null;
   challengePrompt?: string | null;
@@ -273,6 +335,7 @@ export type UseAttentionDetectorResult = {
   silenceAlarm: (input: string) => boolean;
   triggerDebugAlarm: (mode?: ChallengeType) => void;
   landmarks?: FaceLandmarks | null;
+  poseLandmarks?: import("./poseLandmarks").PoseLandmarks | null;
   isCalibrating: boolean;
   calibrationProgress: number;
   calibrationBaselines?: CalibrationBaselines | null;
@@ -307,6 +370,7 @@ export function useAttentionDetector(
   const [tooFar, setTooFar] = useState<boolean>(false);
   const [distanceWarningDuration, setDistanceWarningDuration] = useState<number>(0);
   const [landmarks, setLandmarks] = useState<FaceLandmarks | null>(null);
+  const [poseLandmarks, setPoseLandmarks] = useState<PoseLandmarks | null>(null);
   const [baselines, setBaselines] = useState<CalibrationBaselines | null>(null);
   const [isCalibrating, setIsCalibrating] = useState<boolean>(false);
   const [calibrationProgress, setCalibrationProgress] = useState<number>(0);
@@ -315,6 +379,28 @@ export function useAttentionDetector(
   const [requireAlarmAck, setRequireAlarmAck] = useState<boolean>(false);
   const [challengePrompt, setChallengePrompt] = useState<string | null>(null);
   const [challengeType, setChallengeType] = useState<ChallengeType>("phrase");
+
+  // Posture state
+  const [isSlouchingNow, setIsSlouchingNow] = useState<boolean>(false);
+  const [isSlouched, setIsSlouched] = useState<boolean>(false);
+  const [slouchDuration, setSlouchDuration] = useState<number>(0);
+  const [leanAngle, setLeanAngle] = useState<number>(0);
+  const [isLeaning, setIsLeaning] = useState<boolean>(false);
+  const [leanDirection, setLeanDirection] = useState<"forward" | "backward" | "neutral">("neutral");
+  const [leanDuration, setLeanDuration] = useState<number>(0);
+  const [bodyPresence, setBodyPresence] = useState<number>(0);
+  const [isPresent, setIsPresent] = useState<boolean>(true);
+  const [awayDuration, setAwayDuration] = useState<number>(0);
+
+  // Absence alarm state
+  const [absentCountdown, setAbsentCountdown] = useState<number | undefined>(undefined);
+  const [isAbsenceAlarmArmed, setIsAbsenceAlarmArmed] = useState<boolean>(true);
+  const absentStartTimeRef = useRef<number | null>(null);
+
+  // Voice warning state
+  const [activeWarning, setActiveWarning] = useState<string | null>(null);
+  const warningStartTimeRef = useRef<number | null>(null);
+  const VOICE_GRACE_PERIOD_MS = 5000; // 5 seconds
 
   const activeAlarmsRef = useRef<AttentionAlarm[]>([]);
   const requireAckRef = useRef<boolean>(false);
@@ -373,6 +459,57 @@ const updateChallenge = useCallback(
     updateChallenge("phrase", null, null);
   }, [updateActiveAlarms, updateAlarmPhrase, updateRequireAck, updateChallenge]);
 
+  const disarmAbsenceAlarm = useCallback(() => {
+    setIsAbsenceAlarmArmed(false);
+    setAbsentCountdown(undefined);
+    absentStartTimeRef.current = null;
+  }, []);
+
+  // Batch state updates to reduce re-renders
+  const queueStateUpdate = useCallback((updates: Partial<UseAttentionDetectorResult>) => {
+    Object.assign(pendingUpdatesRef.current, updates);
+  }, []);
+
+  const flushStateUpdates = useCallback(() => {
+    const updates = pendingUpdatesRef.current;
+    if (Object.keys(updates).length === 0) return;
+
+    // Apply all batched updates
+    if (updates.ear !== undefined) setEar(updates.ear);
+    if (updates.eyesClosedSec !== undefined) setEyesClosedSec(updates.eyesClosedSec);
+    if (updates.headTiltAngle !== undefined) setHeadTiltAngle(updates.headTiltAngle);
+    if (updates.isHeadTilted !== undefined) setHeadTilted(updates.isHeadTilted);
+    if (updates.headPitchAngle !== undefined) setHeadPitchAngle(updates.headPitchAngle);
+    if (updates.instantaneousHeadPitchAngle !== undefined) setInstantaneousHeadPitchAngle(updates.instantaneousHeadPitchAngle);
+    if (updates.headPitchWindowMax !== undefined) setHeadPitchWindowMax(updates.headPitchWindowMax);
+    if (updates.headPitchWindowMin !== undefined) setHeadPitchWindowMin(updates.headPitchWindowMin);
+    if (updates.isHeadNodding !== undefined) setHeadNodding(updates.isHeadNodding);
+    if (updates.isHeadTiltingBack !== undefined) setHeadTiltingBack(updates.isHeadTiltingBack);
+    if (updates.mar !== undefined) setMar(updates.mar);
+    if (updates.isYawning !== undefined) setYawning(updates.isYawning);
+    if (updates.yawnCount !== undefined) setYawnCount(updates.yawnCount);
+    if (updates.gazeDirection !== undefined) setGazeDirection(updates.gazeDirection);
+    if (updates.isLookingAway !== undefined) setLookingAway(updates.isLookingAway);
+    if (updates.lookAwayDuration !== undefined) setLookAwayDuration(updates.lookAwayDuration);
+    if (updates.faceWidth !== undefined) setFaceWidth(updates.faceWidth);
+    if (updates.isTooClose !== undefined) setTooClose(updates.isTooClose);
+    if (updates.isTooFar !== undefined) setTooFar(updates.isTooFar);
+    if (updates.distanceWarningDuration !== undefined) setDistanceWarningDuration(updates.distanceWarningDuration);
+    if (updates.isSlouchingNow !== undefined) setIsSlouchingNow(updates.isSlouchingNow);
+    if (updates.isSlouched !== undefined) setIsSlouched(updates.isSlouched);
+    if (updates.slouchDuration !== undefined) setSlouchDuration(updates.slouchDuration);
+    if (updates.leanAngle !== undefined) setLeanAngle(updates.leanAngle);
+    if (updates.isLeaning !== undefined) setIsLeaning(updates.isLeaning);
+    if (updates.leanDirection !== undefined) setLeanDirection(updates.leanDirection);
+    if (updates.leanDuration !== undefined) setLeanDuration(updates.leanDuration);
+    if (updates.bodyPresence !== undefined) setBodyPresence(updates.bodyPresence);
+    if (updates.isPresent !== undefined) setIsPresent(updates.isPresent);
+    if (updates.awayDuration !== undefined) setAwayDuration(updates.awayDuration);
+
+    // Clear pending updates
+    pendingUpdatesRef.current = {};
+  }, []);
+
   // Track consecutive closed frames
   const closedFramesRef = useRef<number>(0);
   const lastEmitTimeRef = useRef<number>(0);
@@ -380,6 +517,13 @@ const updateChallenge = useCallback(
   const yawnDetectorRef = useRef<YawnDetector>(new YawnDetector());
   const gazeTrackerRef = useRef<GazeTracker>(new GazeTracker());
   const faceDistanceTrackerRef = useRef<FaceDistanceTracker>(new FaceDistanceTracker());
+  const postureTrackerRef = useRef<PostureTracker>(new PostureTracker());
+  const latestPostureStateRef = useRef<ReturnType<PostureTracker['update']> | null>(null);
+
+  // Batched state updates (flush every 100ms)
+  const pendingUpdatesRef = useRef<Partial<UseAttentionDetectorResult>>({});
+  const lastStateFlushRef = useRef<number>(0);
+  const STATE_FLUSH_INTERVAL = 100; // ms
   const calibrationRef = useRef<CalibrationAccumulator>({
     collecting: false,
     startTimestamp: null,
@@ -510,6 +654,7 @@ const updateChallenge = useCallback(
       yawnDetectorRef.current = new YawnDetector();
       gazeTrackerRef.current = new GazeTracker();
       faceDistanceTrackerRef.current = new FaceDistanceTracker();
+      postureTrackerRef.current = new PostureTracker();
     } else {
       calibrationRef.current.collecting = false;
       calibrationRef.current.startTimestamp = null;
@@ -551,6 +696,28 @@ const updateChallenge = useCallback(
         const missingSec = missingFaceFramesRef.current / FPS;
         setEyesClosedSec(missingSec);
 
+        // Handle absence alarm countdown
+        if (isAbsenceAlarmArmed) {
+          if (absentStartTimeRef.current === null) {
+            absentStartTimeRef.current = now;
+          }
+          const absentDuration = (now - absentStartTimeRef.current) / 1000;
+          const countdown = Math.max(0, 5 - absentDuration);
+          setAbsentCountdown(countdown);
+
+          // Trigger alarm after 5 seconds
+          if (absentDuration >= 5 && !requireAckRef.current) {
+            updateActiveAlarms(getAlarmBatch("sleeping", 5, now));
+            playDrowsinessAlert(true);
+            assignNewChallenge(Math.random() < 0.5 ? "math" : "trivia");
+            updateRequireAck(true);
+            lastAlarmStateRef.current = "sleeping";
+            setState("sleeping");
+            setConfidence(0.99);
+            return;
+          }
+        }
+
         if (calibrationRef.current.collecting) {
           calibrationRef.current.startTimestamp = null;
           calibrationRef.current.pitchSamples = [];
@@ -564,6 +731,8 @@ const updateChallenge = useCallback(
           if (!requireAckRef.current) {
             resetAlarmState();
           }
+          absentStartTimeRef.current = null;
+          setAbsentCountdown(undefined);
           return;
         }
 
@@ -574,6 +743,7 @@ const updateChallenge = useCallback(
           latestStateRef.current = "sleeping";
           if (!requireAckRef.current || lastAlarmStateRef.current !== "sleeping") {
             updateActiveAlarms(getAlarmBatch("sleeping", 5, now));
+            playDrowsinessAlert(true); // Play critical alert
             if (!requireAckRef.current) {
               assignNewChallenge(Math.random() < 0.5 ? "math" : "trivia");
             } else {
@@ -583,6 +753,7 @@ const updateChallenge = useCallback(
             lastAlarmStateRef.current = "sleeping";
           } else if (requireAckRef.current && activeAlarmsRef.current.length === 0) {
             updateActiveAlarms(getAlarmBatch("sleeping", 5, now));
+            playDrowsinessAlert(true); // Play critical alert
           }
           setState("sleeping");
           setConfidence(0.98);
@@ -590,6 +761,7 @@ const updateChallenge = useCallback(
           latestStateRef.current = "noddingOff";
           if (!requireAckRef.current || lastAlarmStateRef.current !== "noddingOff") {
             updateActiveAlarms(getAlarmBatch("nodding", 4, now));
+            playDrowsinessAlert(false); // Play warning alert
             if (!requireAckRef.current) {
               assignNewChallenge();
             }
@@ -597,6 +769,7 @@ const updateChallenge = useCallback(
             lastAlarmStateRef.current = "noddingOff";
           } else if (requireAckRef.current && activeAlarmsRef.current.length === 0) {
             updateActiveAlarms(getAlarmBatch("nodding", 4, now));
+            playDrowsinessAlert(false); // Play warning alert
           }
           setState("noddingOff");
           setConfidence(0.94);
@@ -613,6 +786,10 @@ const updateChallenge = useCallback(
       }
 
       missingFaceFramesRef.current = 0;
+
+      // Reset absence alarm countdown when face is detected
+      absentStartTimeRef.current = null;
+      setAbsentCountdown(undefined);
 
       // Pre-compute core metrics (raw values before baseline adjustment)
       const currentEar = computeAverageEAR(
@@ -664,6 +841,15 @@ const updateChallenge = useCallback(
             faceWidth: average(calibrationRef.current.faceWidthSamples),
           };
           setBaselines(newBaselines);
+
+          // Set posture baseline during calibration
+          const postureState = latestPostureStateRef.current;
+          if (postureState && postureState.isPresent && poseLandmarks) {
+            // Calculate raw lean angle for baseline
+            const leanAngleRaw = computeLeanAngle(poseLandmarks);
+            postureTrackerRef.current.setBaseline(postureState.postureVertical, leanAngleRaw);
+          }
+
           calibrationRef.current.collecting = false;
           setIsCalibrating(false);
           calibrationProgressRef.current = 1;
@@ -710,9 +896,7 @@ const updateChallenge = useCallback(
       );
 
       const adjustedTilt = tiltAngleRaw - activeBaselines.tilt;
-      setHeadTiltAngle(adjustedTilt);
       const isTilted = isHeadTilted(adjustedTilt, HEAD_TILT_THRESHOLD);
-      setHeadTilted(isTilted);
 
       const adjustedPitch = pitchAngleRaw - activeBaselines.pitch;
       const nodState = headNodDetectorRef.current.update(
@@ -720,39 +904,45 @@ const updateChallenge = useCallback(
         HEAD_PITCH_THRESHOLD,
         HEAD_PITCH_BACK_THRESHOLD
       );
-      setHeadPitchAngle(nodState.avgPitch);
-      setInstantaneousHeadPitchAngle(nodState.instantaneousPitch);
-      setHeadPitchWindowMax(nodState.windowMax);
-      setHeadPitchWindowMin(nodState.windowMin);
-      setHeadNodding(nodState.isForwardNodding);
-      setHeadTiltingBack(nodState.isBackwardTilting);
 
       // Compute MAR (Mouth Aspect Ratio) for yawn detection
       const yawnState = yawnDetectorRef.current.update(currentMAR);
-      setMar(yawnState.avgMAR);
       const currentIsYawning = yawnState.isYawning;
       const currentYawCount = yawnState.yawnCount;
-      setYawning(currentIsYawning);
-      setYawnCount(currentYawCount);
       const isFrequentYawning = isDrowsyYawnRate(currentYawCount);
 
       // Compute gaze direction
       const gazeState = gazeTrackerRef.current.update(horizontalGaze);
       const currentIsLookingAway = gazeState.isLookingAway;
       const currentLookAwayDuration = gazeState.lookAwayDuration;
-      setGazeDirection(gazeState.horizontalGaze);
-      setLookingAway(currentIsLookingAway);
-      setLookAwayDuration(currentLookAwayDuration);
 
       // Compute face distance from camera
       const distanceState = faceDistanceTrackerRef.current.update(currentFaceWidth);
       const currentIsTooClose = distanceState.isTooClose;
       const currentIsTooFar = distanceState.isTooFar;
       const currentDistanceWarning = distanceState.distanceWarningDuration;
-      setFaceWidth(distanceState.faceWidth);
-      setTooClose(currentIsTooClose);
-      setTooFar(currentIsTooFar);
-      setDistanceWarningDuration(currentDistanceWarning);
+
+      // Queue batched state updates
+      queueStateUpdate({
+        headTiltAngle: adjustedTilt,
+        isHeadTilted: isTilted,
+        headPitchAngle: nodState.avgPitch,
+        instantaneousHeadPitchAngle: nodState.instantaneousPitch,
+        headPitchWindowMax: nodState.windowMax,
+        headPitchWindowMin: nodState.windowMin,
+        isHeadNodding: nodState.isForwardNodding,
+        isHeadTiltingBack: nodState.isBackwardTilting,
+        mar: yawnState.avgMAR,
+        isYawning: currentIsYawning,
+        yawnCount: currentYawCount,
+        gazeDirection: gazeState.horizontalGaze,
+        isLookingAway: currentIsLookingAway,
+        lookAwayDuration: currentLookAwayDuration,
+        faceWidth: distanceState.faceWidth,
+        isTooClose: currentIsTooClose,
+        isTooFar: currentIsTooFar,
+        distanceWarningDuration: currentDistanceWarning,
+      });
       const isAbnormalDistance = faceDistanceTrackerRef.current.isDrowsyDistance(
         currentDistanceWarning
       );
@@ -772,7 +962,7 @@ const updateChallenge = useCallback(
       if (closedFramesRef.current >= MIN_CLOSED_FRAMES) {
         closedSec = (closedFramesRef.current - MIN_CLOSED_FRAMES) / FPS;
       }
-      setEyesClosedSec(closedSec);
+      queueStateUpdate({ eyesClosedSec: closedSec });
 
       // Aggregate evidence for each attention state
       const eyesClosedDuration = closedSec;
@@ -783,13 +973,16 @@ const updateChallenge = useCallback(
       let noddingEvidence = 0;
       let awakeEvidence = 0.3; // baseline trust in awake state
 
+      // Very aggressive eye closing detection - eyes closed = strong signal
       if (eyesClosedDuration >= EYES_CLOSED_SLEEP_SEC) {
         const over = eyesClosedDuration - EYES_CLOSED_SLEEP_SEC;
-        sleepingEvidence += 0.6 + Math.min(over / 5, 0.4);
+        sleepingEvidence += 2.0 + Math.min(over / 2, 1.0); // Much stronger evidence
       } else if (eyesClosedDuration >= EYES_CLOSED_NOD_SEC) {
-        noddingEvidence += 0.5;
-      } else if (eyesClosedDuration >= 1.5) {
-        noddingEvidence += 0.2;
+        noddingEvidence += 1.5; // Triple the evidence
+      } else if (eyesClosedDuration >= 2.0) {
+        noddingEvidence += 0.8; // Increased from 1.5s to 2s threshold, stronger evidence
+      } else if (eyesClosedDuration >= 1.0) {
+        noddingEvidence += 0.3;
       }
 
       if (nodState.isForwardNodding) {
@@ -841,10 +1034,89 @@ const updateChallenge = useCallback(
         awakeEvidence += 0.05;
       }
 
+      // Reduce awake evidence significantly when eyes are closed
       if (eyesClosedDuration < 1) {
         awakeEvidence += 0.3;
+      } else if (eyesClosedDuration < 2.0) {
+        awakeEvidence += 0.05; // Reduced from 0.1
       } else if (eyesClosedDuration < EYES_CLOSED_NOD_SEC) {
-        awakeEvidence += 0.1;
+        awakeEvidence = 0; // No awake evidence if eyes closed 2+ seconds
+      } else {
+        awakeEvidence = 0; // Definitely not awake if eyes closed 3.5+ seconds
+      }
+
+      // POSTURE EVIDENCE INTEGRATION
+      const postureState = latestPostureStateRef.current;
+
+      if (postureState) {
+        // Critical sleeping indicators from posture
+        if (postureState.leanDirection === "backward" &&
+            postureState.leanDuration > 5000 &&
+            eyesClosedDuration > 3) {
+          sleepingEvidence += 0.4; // Strong sleep signal
+        }
+
+        if (!postureState.isPresent && postureState.awayDuration > 10000) {
+          sleepingEvidence += 0.5; // User away = sleeping/left desk
+        }
+
+        if (postureState.isSlouched &&
+            postureState.leanDirection === "backward" &&
+            eyesClosedDuration > 4) {
+          sleepingEvidence += 0.3; // Loss of postural control
+        }
+
+        // Nodding/fatigue indicators from posture
+        if (postureState.isSlouched) {
+          if (postureState.slouchDuration > 10000) {
+            noddingEvidence += 0.3; // Prolonged slouching
+          } else if (postureState.slouchDuration > 5000) {
+            noddingEvidence += 0.2; // Early fatigue
+          }
+        }
+
+        if (postureState.leanDirection === "forward" &&
+            postureState.leanDuration > 3000 &&
+            eyesClosedDuration > 1.5) {
+          noddingEvidence += 0.25; // Classic nodding off
+        }
+
+        if (postureState.leanDirection === "backward" &&
+            postureState.leanDuration > 5000 &&
+            postureState.leanDuration < 15000) {
+          noddingEvidence += 0.15; // Mild backward lean = trying to stay awake
+        }
+
+        if (postureState.isLeaning && currentIsYawning) {
+          noddingEvidence += 0.1; // Compound fatigue signal
+        }
+
+        // Awake indicators from posture
+        if (!postureState.isSlouched &&
+            !postureState.isLeaning &&
+            postureState.isPresent) {
+          awakeEvidence += 0.25; // Good posture = alert
+        }
+
+        if (postureState.isPresent &&
+            postureState.bodyPresence > 0.7 &&
+            !postureState.isSlouched) {
+          awakeEvidence += 0.15; // Clear presence + good posture
+        }
+
+        if (!postureState.isSlouchingNow &&
+            postureState.slouchDuration === 0 &&
+            postureState.leanDirection === "neutral") {
+          awakeEvidence += 0.1; // Actively maintaining posture
+        }
+
+        // Confidence reduction for uncertain states
+        if (postureState.bodyPresence < 0.5 && landmarks !== null) {
+          // User moving around - reduce all confidence by 20%
+          sleepingEvidence *= 0.8;
+          noddingEvidence *= 0.8;
+          awakeEvidence *= 0.8;
+        }
       }
 
       sleepingEvidence = Math.min(1, Math.max(0, sleepingEvidence));
@@ -871,42 +1143,104 @@ const updateChallenge = useCallback(
 
       const isRiskState = best.state === "noddingOff" || best.state === "sleeping";
 
+      console.log('[Detection] State:', best.state, 'IsRiskState:', isRiskState, 'Confidence:', newConfidence);
+
       if (isRiskState) {
         const isSleeping = best.state === "sleeping";
-        const enteringAlarm = !requireAckRef.current || lastAlarmStateRef.current !== best.state;
 
-        if (enteringAlarm) {
-          const alarms = getAlarmBatch(
-            isSleeping ? "sleeping" : "nodding",
-            isSleeping ? 5 : 4,
-            now
-          );
-          updateActiveAlarms(alarms);
+        // Get appropriate voice warning based on current metrics
+        const warning = getWarningForState({
+          eyesClosedSec: closedSec,
+          isHeadNodding: nodState.isForwardNodding,
+          isHeadTiltingBack: nodState.isBackwardTilting,
+          isHeadTilted: isTilted,
+          isSlouched: postureState?.isSlouched,
+          leanDirection: postureState?.leanDirection,
+          isLeaning: postureState?.isLeaning,
+          isYawning: currentIsYawning,
+          yawnCount: currentYawCount,
+          isLookingAway: currentIsLookingAway,
+          isPresent: postureState?.isPresent,
+          landmarks: detectedLandmarks,
+        });
 
-          const preferredChallenge: ChallengeType | undefined = isSleeping
-            ? Math.random() < 0.5
-              ? "math"
-              : "trivia"
-            : undefined;
+        console.log('[Detection] Risk state detected. Warning:', warning, 'RequireAck:', requireAckRef.current);
 
-          assignNewChallenge(preferredChallenge);
-          updateRequireAck(true);
-          lastAlarmStateRef.current = best.state;
-        } else if (isSleeping && lastAlarmStateRef.current !== "sleeping") {
-          const alarms = getAlarmBatch("sleeping", 5, now);
-          updateActiveAlarms(alarms);
-          assignNewChallenge(Math.random() < 0.5 ? "math" : "trivia");
-          updateRequireAck(true);
-          lastAlarmStateRef.current = "sleeping";
-        } else if (requireAckRef.current && activeAlarmsRef.current.length === 0) {
-          const alarms = getAlarmBatch(
-            isSleeping ? "sleeping" : "nodding",
-            isSleeping ? 5 : 4,
-            now
-          );
-          updateActiveAlarms(alarms);
+        // Voice warning system with 3-second grace period
+        if (warning && !requireAckRef.current) {
+          // Check if this is a brand new warning category or just an escalation
+          const isNewWarningCategory = !warningStartTimeRef.current ||
+            (activeWarning && !warning.message.includes(activeWarning.split(' ')[0]) && !activeWarning.includes(warning.message.split(' ')[0]));
+
+          if (isNewWarningCategory) {
+            // Brand new warning - speak it and start timer
+            speakWarning(warning.message, warning.priority);
+            setActiveWarning(warning.message);
+            warningStartTimeRef.current = now;
+
+            // Debug log
+            console.log('[Voice Warning] New warning:', warning.message, 'Priority:', warning.priority);
+          } else if (activeWarning !== warning.message) {
+            // Same category but different message (escalation) - speak new message but DON'T reset timer
+            speakWarning(warning.message, warning.priority);
+            setActiveWarning(warning.message);
+            console.log('[Voice Warning] Escalating warning:', warning.message, 'Time elapsed:', ((now - (warningStartTimeRef.current || now)) / 1000).toFixed(1), 's');
+          }
+
+          // Check if grace period has expired
+          if (warningStartTimeRef.current && now - warningStartTimeRef.current >= VOICE_GRACE_PERIOD_MS) {
+            // Grace period expired - sound the alarm
+            const enteringAlarm = !requireAckRef.current || lastAlarmStateRef.current !== best.state;
+
+            if (enteringAlarm) {
+              const alarms = getAlarmBatch(
+                isSleeping ? "sleeping" : "nodding",
+                isSleeping ? 5 : 4,
+                now
+              );
+              updateActiveAlarms(alarms);
+              playDrowsinessAlert(isSleeping);
+
+              const preferredChallenge: ChallengeType | undefined = isSleeping
+                ? Math.random() < 0.5
+                  ? "math"
+                  : "trivia"
+                : undefined;
+
+              assignNewChallenge(preferredChallenge);
+              updateRequireAck(true);
+              lastAlarmStateRef.current = best.state;
+            }
+          }
+        } else if (requireAckRef.current) {
+          // Already in alarm state - handle escalation
+          const enteringAlarm = lastAlarmStateRef.current !== best.state;
+
+          if (enteringAlarm && isSleeping && lastAlarmStateRef.current !== "sleeping") {
+            const alarms = getAlarmBatch("sleeping", 5, now);
+            updateActiveAlarms(alarms);
+            playDrowsinessAlert(true);
+            assignNewChallenge(Math.random() < 0.5 ? "math" : "trivia");
+            updateRequireAck(true);
+            lastAlarmStateRef.current = "sleeping";
+          } else if (activeAlarmsRef.current.length === 0) {
+            const alarms = getAlarmBatch(
+              isSleeping ? "sleeping" : "nodding",
+              isSleeping ? 5 : 4,
+              now
+            );
+            updateActiveAlarms(alarms);
+            playDrowsinessAlert(isSleeping);
+          }
         }
       } else {
+        // User is awake - reset warning state
+        if (activeWarning) {
+          cancelVoiceWarning();
+          setActiveWarning(null);
+          warningStartTimeRef.current = null;
+        }
+
         if (!requireAckRef.current && activeAlarmsRef.current.length > 0) {
           updateActiveAlarms([]);
           lastAlarmStateRef.current = "awake";
@@ -923,6 +1257,12 @@ const updateChallenge = useCallback(
       }
       setState(best.state);
       setConfidence(newConfidence);
+
+      // Flush batched state updates every 100ms
+      if (now - lastStateFlushRef.current >= STATE_FLUSH_INTERVAL) {
+        lastStateFlushRef.current = now;
+        flushStateUpdates();
+      }
 
       // Emit snapshot every 200-500ms (configurable)
       const EMIT_INTERVAL_MS = 300;
@@ -944,11 +1284,45 @@ const updateChallenge = useCallback(
       }
     };
 
+    // Handle pose landmarks for posture tracking
+    const handlePose = (detectedPose: PoseLandmarks | null) => {
+      const now = Date.now();
+      setPoseLandmarks(detectedPose);
+
+      const postureState = postureTrackerRef.current.update(detectedPose, now);
+
+      // Store in ref for evidence integration
+      latestPostureStateRef.current = postureState;
+
+      // Queue batched posture state updates
+      queueStateUpdate({
+        isSlouchingNow: postureState.isSlouchingNow,
+        isSlouched: postureState.isSlouched,
+        slouchDuration: postureState.slouchDuration,
+        leanAngle: postureState.leanAngle,
+        isLeaning: postureState.isLeaning,
+        leanDirection: postureState.leanDirection,
+        leanDuration: postureState.leanDuration,
+        bodyPresence: postureState.bodyPresence,
+        isPresent: postureState.isPresent,
+        awayDuration: postureState.awayDuration,
+      });
+    };
+
     // Start face tracking
     const stopTracking = startFaceTracking(video, handleLandmarks, FPS);
 
+    // Start pose tracking (lower FPS for performance)
+    let stopPoseTracking: (() => void) | null = null;
+    startPoseTracking(video, handlePose, 10).then((stopFn) => {
+      stopPoseTracking = stopFn;
+    });
+
     return () => {
       stopTracking();
+      if (stopPoseTracking) {
+        stopPoseTracking();
+      }
     };
   }, [
     isActive,
@@ -961,6 +1335,9 @@ const updateChallenge = useCallback(
     updateChallenge,
     assignNewChallenge,
     getAlarmBatch,
+    queueStateUpdate,
+    flushStateUpdates,
+    isAbsenceAlarmArmed,
   ]);
 
   return {
@@ -986,6 +1363,24 @@ const updateChallenge = useCallback(
     isTooClose: tooClose,
     isTooFar: tooFar,
     distanceWarningDuration,
+    // Posture metrics
+    isSlouchingNow,
+    isSlouched,
+    slouchDuration,
+    leanAngle,
+    isLeaning,
+    leanDirection,
+    leanDuration,
+    bodyPresence,
+    isPresent,
+    awayDuration,
+    // Absence alarm
+    absentCountdown,
+    isAbsenceAlarmArmed,
+    disarmAbsenceAlarm,
+    // Voice warning
+    activeWarning,
+    // Alarms
     activeAlarms,
     alarmPhrase,
     challengePrompt,
@@ -994,6 +1389,7 @@ const updateChallenge = useCallback(
     silenceAlarm,
     triggerDebugAlarm,
     landmarks,
+    poseLandmarks,
     isCalibrating,
     calibrationProgress,
     calibrationBaselines: baselines,

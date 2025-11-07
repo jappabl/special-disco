@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { FormEvent } from "react";
 import { useWebcamStream } from "@/attention/useWebcamStream";
 import { useAttentionDetector } from "@/attention/useAttentionDetector";
+import { primeSpeechSynthesis } from "@/attention/voiceWarnings";
 export default function AttentionDemoPage() {
   const { videoRef, isReady, error, start, stop } = useWebcamStream();
   const [isActive, setIsActive] = useState(false);
@@ -35,7 +36,25 @@ export default function AttentionDemoPage() {
     isTooClose,
     isTooFar,
     distanceWarningDuration,
+    // Posture metrics
+    isSlouchingNow,
+    isSlouched,
+    slouchDuration,
+    leanAngle,
+    isLeaning,
+    leanDirection,
+    leanDuration,
+    bodyPresence,
+    isPresent,
+    awayDuration,
+    // Absence alarm
+    absentCountdown,
+    isAbsenceAlarmArmed,
+    disarmAbsenceAlarm,
+    // Voice warning
+    activeWarning,
     landmarks,
+    poseLandmarks,
     isCalibrating,
     calibrationProgress,
     calibrationBaselines,
@@ -72,6 +91,7 @@ export default function AttentionDemoPage() {
   const handleStart = useCallback(async () => {
     await start();
     await ensureAudioContext();
+    primeSpeechSynthesis(); // Prime speech synthesis on user interaction
     setIsActive(true);
   }, [ensureAudioContext, start]);
 
@@ -114,8 +134,22 @@ export default function AttentionDemoPage() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
+    let lastDrawTime = 0;
+    const DRAW_FPS = 30;
+    const DRAW_INTERVAL = 1000 / DRAW_FPS; // ~33ms between draws
+
     const drawLandmarks = () => {
       if (!ctx || !canvas) return;
+
+      const now = performance.now();
+
+      // Throttle rendering to 30 FPS
+      if (now - lastDrawTime < DRAW_INTERVAL) {
+        requestAnimationFrame(drawLandmarks);
+        return;
+      }
+
+      lastDrawTime = now;
 
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -141,11 +175,7 @@ export default function AttentionDemoPage() {
         }
       }
 
-      if (!landmarks) {
-        requestAnimationFrame(drawLandmarks);
-        return;
-      }
-
+      // Draw text overlays first (before flipping for landmarks)
       const calibratedEarThreshold = calibrationBaselines
         ? Math.max(calibrationBaselines.ear * 0.75, 0.15)
         : 0.2;
@@ -160,6 +190,11 @@ export default function AttentionDemoPage() {
       ctx.fillStyle = "white";
       ctx.font = "bold 20px monospace";
       ctx.fillText(`STATE: ${stateLabel}`, 20, 36);
+
+      if (!landmarks) {
+        requestAnimationFrame(drawLandmarks);
+        return;
+      }
 
       if (hasAlarms) {
         ctx.font = "bold 16px monospace";
@@ -184,6 +219,11 @@ export default function AttentionDemoPage() {
         }
         ctx.fillStyle = "white";
       }
+
+      // Apply horizontal flip for landmarks to match mirrored video
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.translate(-w, 0);
 
       // Draw all face points (small gray dots)
       ctx.fillStyle = "rgba(200, 200, 200, 0.3)";
@@ -230,25 +270,28 @@ export default function AttentionDemoPage() {
       ctx.closePath();
       ctx.stroke();
 
-      // Draw eye closure indicator and timer
+      // Restore canvas for text overlays
+      ctx.restore();
+
+      // Draw eye closure indicator and timer (text - not flipped)
       if (ear !== undefined && ear < calibratedEarThreshold) {
         // Eyes closed - draw red overlay
         ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
         ctx.fillRect(0, 0, w, h);
 
-        // Text indicator with timer
+        // Text indicator with timer - positioned below STATE box
         ctx.fillStyle = "red";
         ctx.font = "bold 24px monospace";
-        ctx.fillText("EYES CLOSED", 20, 40);
+        ctx.fillText("EYES CLOSED", 20, 120);
 
         // Draw timer
         if (eyesClosedSec !== undefined && eyesClosedSec > 0) {
           ctx.font = "bold 32px monospace";
-          ctx.fillText(`${eyesClosedSec.toFixed(1)}s`, 20, 80);
+          ctx.fillText(`${eyesClosedSec.toFixed(1)}s`, 20, 160);
         }
       }
 
-      // Draw head tilt indicator
+      // Draw head tilt indicator - positioned in middle-left
       if (isHeadTilted && headTiltAngle !== undefined) {
         ctx.fillStyle = "rgba(255, 165, 0, 0.3)"; // Orange overlay
         ctx.fillRect(0, 0, w, h);
@@ -256,9 +299,9 @@ export default function AttentionDemoPage() {
         ctx.fillStyle = "orange";
         ctx.font = "bold 24px monospace";
         const tiltText = headTiltAngle > 0 ? "HEAD TILTED RIGHT" : "HEAD TILTED LEFT";
-        ctx.fillText(tiltText, 20, h - 40);
+        ctx.fillText(tiltText, 20, 220);
         ctx.font = "bold 20px monospace";
-        ctx.fillText(`${Math.abs(headTiltAngle).toFixed(1)}°`, 20, h - 10);
+        ctx.fillText(`${Math.abs(headTiltAngle).toFixed(1)}°`, 20, 250);
       }
 
       // Highlight head pitch extremes
@@ -270,7 +313,7 @@ export default function AttentionDemoPage() {
         ctx.fillRect(0, 0, w, h);
       }
 
-      // Draw head pitch diagnostics
+      // Draw head pitch diagnostics - positioned in bottom-left with more spacing
       const pitchTextColor = isHeadNodding
         ? "red"
         : isHeadTiltingBack
@@ -280,7 +323,7 @@ export default function AttentionDemoPage() {
       ctx.font = "bold 14px monospace";
       ctx.strokeStyle = "black";
       ctx.lineWidth = 3;
-      let pitchLabelY = h - 140;
+      let pitchLabelY = h - 180; // Move up to avoid overlap
 
       if (headPitchAngle !== undefined) {
         const label = `Pitch avg: ${headPitchAngle.toFixed(1)}°`;
@@ -327,12 +370,127 @@ export default function AttentionDemoPage() {
         ctx.fillText(label, 20, pitchLabelY);
       }
 
-      requestAnimationFrame(drawLandmarks);
-    };
+    // Draw pose landmarks (body/shoulders) - need flipping
+    if (poseLandmarks) {
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.translate(-w, 0);
+
+      const { leftShoulder, rightShoulder, leftHip, rightHip, nose, visibility } = poseLandmarks;
+
+      // Draw all pose points (small purple dots)
+      ctx.fillStyle = "rgba(200, 150, 255, 0.4)";
+      poseLandmarks.allPoints.forEach((point) => {
+        ctx.beginPath();
+        ctx.arc(point.x * w, point.y * h, 2, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+
+      // Draw skeleton connections
+      ctx.strokeStyle = "rgba(147, 51, 234, 0.8)"; // Purple
+      ctx.lineWidth = 3;
+
+      // Shoulder line
+      if (visibility.leftShoulder > 0.5 && visibility.rightShoulder > 0.5) {
+        ctx.beginPath();
+        ctx.moveTo(leftShoulder.x * w, leftShoulder.y * h);
+        ctx.lineTo(rightShoulder.x * w, rightShoulder.y * h);
+        ctx.stroke();
+      }
+
+      // Hip line
+      if (visibility.leftHip > 0.5 && visibility.rightHip > 0.5) {
+        ctx.beginPath();
+        ctx.moveTo(leftHip.x * w, leftHip.y * h);
+        ctx.lineTo(rightHip.x * w, rightHip.y * h);
+        ctx.stroke();
+      }
+
+      // Spine (connect shoulder midpoint to hip midpoint)
+      if (visibility.leftShoulder > 0.5 && visibility.rightShoulder > 0.5 &&
+          visibility.leftHip > 0.5 && visibility.rightHip > 0.5) {
+        const shoulderMidX = (leftShoulder.x + rightShoulder.x) / 2 * w;
+        const shoulderMidY = (leftShoulder.y + rightShoulder.y) / 2 * h;
+        const hipMidX = (leftHip.x + rightHip.x) / 2 * w;
+        const hipMidY = (leftHip.y + rightHip.y) / 2 * h;
+
+        ctx.beginPath();
+        ctx.moveTo(shoulderMidX, shoulderMidY);
+        ctx.lineTo(hipMidX, hipMidY);
+        ctx.stroke();
+      }
+
+      // Draw key landmarks (larger circles)
+      const drawLandmark = (point: { x: number; y: number }, vis: number, color: string, label: string) => {
+        if (vis > 0.5) {
+          ctx.fillStyle = color;
+          ctx.strokeStyle = "white";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(point.x * w, point.y * h, 8, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+
+          // Label
+          ctx.fillStyle = "white";
+          ctx.strokeStyle = "black";
+          ctx.font = "bold 12px monospace";
+          ctx.lineWidth = 3;
+          ctx.strokeText(label, point.x * w + 12, point.y * h + 5);
+          ctx.fillText(label, point.x * w + 12, point.y * h + 5);
+        }
+      };
+
+      drawLandmark(leftShoulder, visibility.leftShoulder, "#a855f7", "LS"); // Purple
+      drawLandmark(rightShoulder, visibility.rightShoulder, "#c084fc", "RS"); // Light purple
+      drawLandmark(leftHip, visibility.leftHip, "#7c3aed", "LH"); // Dark purple
+      drawLandmark(rightHip, visibility.rightHip, "#9333ea", "RH"); // Medium purple
+    }
+
+      // Restore canvas for text rendering
+      ctx.restore();
+
+      // Draw posture status overlay (text - not flipped)
+    if (poseLandmarks) {
+      let postureY = h - 40;
+      ctx.fillStyle = "white";
+      ctx.strokeStyle = "black";
+      ctx.font = "bold 16px monospace";
+      ctx.lineWidth = 3;
+
+      if (isSlouched && slouchDuration !== undefined) {
+        ctx.fillStyle = "orange";
+        const label = `SLOUCHING (${(slouchDuration / 1000).toFixed(1)}s)`;
+        ctx.strokeText(label, w - 280, postureY);
+        ctx.fillText(label, w - 280, postureY);
+        postureY -= 25;
+      }
+
+      if (isLeaning && leanDirection !== "neutral" && leanAngle !== undefined) {
+        const color = leanDirection === "forward" ? "#ef4444" : "#60a5fa";
+        ctx.fillStyle = color;
+        const dirText = leanDirection === "forward" ? "FORWARD" : "BACKWARD";
+        const label = `LEANING ${dirText} ${Math.abs(leanAngle).toFixed(1)}°`;
+        ctx.strokeText(label, w - 280, postureY);
+        ctx.fillText(label, w - 280, postureY);
+        postureY -= 25;
+      }
+
+      if (!isPresent && awayDuration !== undefined) {
+        ctx.fillStyle = "red";
+        const label = `AWAY (${(awayDuration / 1000).toFixed(1)}s)`;
+        ctx.strokeText(label, w - 280, postureY);
+        ctx.fillText(label, w - 280, postureY);
+      }
+    }
+
+    requestAnimationFrame(drawLandmarks);
+    }
 
     drawLandmarks();
   }, [
     landmarks,
+    poseLandmarks,
     isReady,
     ear,
     eyesClosedSec,
@@ -360,6 +518,13 @@ export default function AttentionDemoPage() {
     requireAlarmAck,
     state,
     videoRef,
+    isSlouched,
+    slouchDuration,
+    isLeaning,
+    leanDirection,
+    leanAngle,
+    isPresent,
+    awayDuration,
   ]);
 
   const stopAlarmAudio = useCallback((): void => {
@@ -591,11 +756,11 @@ const formatStateLabel = (currentState: string) => {
                   className="w-full h-full object-cover"
                   style={{ transform: "scaleX(-1)" }}
                 />
-                {/* Canvas overlay (mirrored) */}
+                {/* Canvas overlay (NOT mirrored - text stays readable) */}
                 <canvas
                   ref={canvasRef}
                   className="absolute inset-0 w-full h-full"
-                  style={{ transform: "scaleX(-1)" }}
+                  style={{ pointerEvents: "none" }}
                 />
                 {!isReady && (
                   <div className="absolute inset-0 flex items-center justify-center text-white">
@@ -645,6 +810,84 @@ const formatStateLabel = (currentState: string) => {
                   >
                     Force Trivia
                   </button>
+                </div>
+
+                {/* Voice Warning Test Buttons */}
+                <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm font-semibold mb-2 text-blue-900">🔊 Test Voice Warnings:</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        console.log('[Test] Simple direct speech test');
+                        const synth = window.speechSynthesis;
+                        console.log('[Test] SpeechSynthesis object:', synth);
+                        console.log('[Test] Speaking:', synth.speaking);
+                        console.log('[Test] Pending:', synth.pending);
+                        console.log('[Test] Paused:', synth.paused);
+
+                        const voices = synth.getVoices();
+                        console.log('[Test] Voices available:', voices.length);
+                        if (voices.length > 0) {
+                          console.log('[Test] First voice:', voices[0]);
+                        }
+
+                        const utterance = new SpeechSynthesisUtterance("Hello");
+                        utterance.lang = 'en-US';
+                        utterance.volume = 1.0;
+                        utterance.rate = 1.0;
+                        utterance.pitch = 1.0;
+
+                        if (voices.length > 0) {
+                          utterance.voice = voices[0];
+                          console.log('[Test] Using voice:', voices[0].name);
+                        }
+
+                        utterance.onstart = () => console.log('[Test] ✅ Started');
+                        utterance.onend = () => console.log('[Test] ✅ Ended');
+                        utterance.onerror = (e) => console.error('[Test] ❌ Error:', e.error, e);
+
+                        console.log('[Test] Calling speak()...');
+                        synth.speak(utterance);
+
+                        setTimeout(() => {
+                          console.log('[Test] After 500ms - Speaking:', synth.speaking, 'Pending:', synth.pending);
+                        }, 500);
+                      }}
+                      className="px-3 py-2 bg-green-200 text-green-800 rounded-lg hover:bg-green-300 transition-colors text-sm"
+                    >
+                      Simple Test
+                    </button>
+                    <button
+                      onClick={() => {
+                        const { speakWarning, primeSpeechSynthesis } = require('@/attention/voiceWarnings');
+                        primeSpeechSynthesis();
+                        speakWarning("Your eyes are closing. Stay alert.", "medium");
+                      }}
+                      className="px-3 py-2 bg-blue-200 text-blue-800 rounded-lg hover:bg-blue-300 transition-colors text-sm"
+                    >
+                      Test Voice (Medium)
+                    </button>
+                    <button
+                      onClick={() => {
+                        const { speakWarning, primeSpeechSynthesis } = require('@/attention/voiceWarnings');
+                        primeSpeechSynthesis();
+                        speakWarning("Please open your eyes.", "high");
+                      }}
+                      className="px-3 py-2 bg-blue-300 text-blue-900 rounded-lg hover:bg-blue-400 transition-colors text-sm"
+                    >
+                      Test Voice (High)
+                    </button>
+                    <button
+                      onClick={() => {
+                        const { speakWarning, primeSpeechSynthesis } = require('@/attention/voiceWarnings');
+                        primeSpeechSynthesis();
+                        speakWarning("Please correct your posture.", "low");
+                      }}
+                      className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm"
+                    >
+                      Test Voice (Low)
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -845,6 +1088,64 @@ const formatStateLabel = (currentState: string) => {
                 </p>
               </div>
 
+              {/* Absence Alarm */}
+              {absentCountdown !== undefined && absentCountdown > 0 && (
+                <div className="p-4 rounded-lg bg-orange-100 border-2 border-orange-500 mb-6 animate-pulse">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-lg font-bold text-orange-900">
+                      ⚠️ USER NOT DETECTED
+                    </p>
+                    <button
+                      onClick={disarmAbsenceAlarm}
+                      className="px-3 py-1 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm font-semibold"
+                    >
+                      DISARM
+                    </button>
+                  </div>
+                  <p className="text-sm text-orange-800">
+                    Alarm triggers in: <span className="text-2xl font-mono font-bold">{absentCountdown.toFixed(1)}s</span>
+                  </p>
+                  <div className="mt-2 h-3 bg-orange-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-orange-600 transition-all"
+                      style={{ width: `${((5 - absentCountdown) / 5) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {!isAbsenceAlarmArmed && (
+                <div className="p-4 rounded-lg bg-gray-100 border-2 border-gray-400 mb-6">
+                  <p className="text-sm font-semibold text-gray-700">
+                    🔕 Absence alarm disarmed
+                  </p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    The system will not trigger alarms when you leave the frame
+                  </p>
+                </div>
+              )}
+
+              {/* Voice Warning */}
+              {activeWarning && !requireAlarmAck && (
+                <div className="p-6 rounded-xl bg-gradient-to-r from-yellow-100 to-orange-100 border-4 border-orange-500 mb-6 shadow-lg animate-pulse">
+                  <div className="flex items-center justify-center gap-3 mb-4">
+                    <span className="text-5xl">⚠️</span>
+                    <p className="text-3xl font-black text-orange-900 uppercase">
+                      Warning!
+                    </p>
+                    <span className="text-5xl">⚠️</span>
+                  </div>
+                  <p className="text-center text-2xl font-bold text-orange-900 mb-3">
+                    {activeWarning}
+                  </p>
+                  <div className="text-center bg-red-100 border-2 border-red-500 rounded-lg p-3">
+                    <p className="text-lg font-bold text-red-700">
+                      🚨 Loud alarm in 5 seconds if not corrected 🚨
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Metrics */}
               <div className="space-y-4">
                 <div className="border-t pt-4">
@@ -1024,6 +1325,91 @@ const formatStateLabel = (currentState: string) => {
                         <span className="text-orange-600 font-semibold ml-2">⚠️ Frequent yawning (nodding-off risk)</span>
                       )}
                     </p>
+                  </div>
+
+                  {/* Body posture section */}
+                  <div className="mb-3 p-3 bg-gray-50 rounded border-2 border-purple-200">
+                    <h3 className="text-sm font-bold text-purple-900 mb-2">
+                      🧍 Body Posture
+                    </h3>
+
+                    {/* Body presence */}
+                    <div className="mb-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-gray-700 font-medium text-xs">
+                          Body Presence
+                        </span>
+                        <span className="text-lg font-mono font-bold">
+                          {bodyPresence !== undefined ? `${(bodyPresence * 100).toFixed(0)}%` : "—"}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${
+                            isPresent ? "bg-green-500" : "bg-red-500"
+                          }`}
+                          style={{
+                            width: `${bodyPresence !== undefined ? bodyPresence * 100 : 0}%`,
+                          }}
+                        />
+                      </div>
+                      {!isPresent && (
+                        <p className="text-xs text-red-600 font-semibold mt-1">
+                          ⚠️ User not at desk ({awayDuration ? (awayDuration / 1000).toFixed(0) : 0}s)
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Slouching */}
+                    <div className="mb-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-gray-700 font-medium text-xs">
+                          Posture
+                        </span>
+                        <span className={`text-sm font-bold ${isSlouched ? "text-orange-600" : "text-green-600"}`}>
+                          {isSlouchingNow ? "SLOUCHING" : "GOOD"}
+                        </span>
+                      </div>
+                      {isSlouched && (
+                        <p className="text-xs text-orange-600 font-semibold">
+                          ⚠️ Slouched for {slouchDuration ? (slouchDuration / 1000).toFixed(0) : 0}s
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Lean angle */}
+                    <div className="mb-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-gray-700 font-medium text-xs">
+                          Lean Angle
+                        </span>
+                        <span className="text-lg font-mono font-bold">
+                          {leanAngle !== undefined ? `${leanAngle.toFixed(1)}°` : "—"}
+                        </span>
+                      </div>
+                      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${
+                            isLeaning
+                              ? leanDirection === "forward"
+                                ? "bg-blue-500"
+                                : "bg-orange-500"
+                              : "bg-green-500"
+                          }`}
+                          style={{
+                            width: `${leanAngle !== undefined ? Math.min(Math.abs(leanAngle) * 5, 100) : 0}%`,
+                          }}
+                        />
+                      </div>
+                      {isLeaning && (
+                        <p className="text-xs text-orange-600 font-semibold mt-1">
+                          ⚠️ Leaning {leanDirection} ({leanDuration ? (leanDuration / 1000).toFixed(0) : 0}s)
+                        </p>
+                      )}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Positive = forward, Negative = backward
+                      </p>
+                    </div>
                   </div>
 
                   {/* Gaze direction */}
