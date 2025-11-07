@@ -1,6 +1,117 @@
-# Screen Activity Tracker - Chrome Extension
+# SleepDefeater - Local-First Attention Tracking System
 
-Chrome MV3 extension that tracks screen activity and categorizes on-task/off-task behavior. Sends `ScreenSnapshot` messages to the web page via `window.postMessage`.
+A privacy-focused drowsiness detection system combining webcam-based attention tracking with screen activity monitoring. All processing happens locally in your browser - no cloud uploads or external recording.
+
+## Components
+
+### 1. Webcam Attention Detection (Next.js Web App)
+Real-time drowsiness detection using MediaPipe and TensorFlow.js
+
+### 2. Screen Activity Tracker (Chrome Extension)
+Tracks tab activity, categorizes browsing behavior, and detects idle time
+
+---
+
+# 📹 Webcam Attention Detection
+
+## Features
+
+- **Eye tracking**: Detects eye closure duration using Eye Aspect Ratio (EAR)
+- **Head pose tracking**: Monitors head nodding, tilting, and pitch angles
+- **Posture analysis**: Tracks slouching, leaning, and body presence
+- **Voice warnings**: Gentle audio warnings before loud alarms (5-second grace period)
+- **Audio fallback**: Tone-based alerts when speech synthesis fails
+- **Calibration system**: Personalizes thresholds to individual users
+- **Challenge prompts**: Math/trivia/typing challenges to confirm wakefulness
+
+## Setup (Web App)
+
+```bash
+npm install
+npm run dev
+```
+
+Visit `http://localhost:3000/attention-demo` to access the attention tracking interface.
+
+## How It Works
+
+1. **Face Detection** (`src/attention/faceLandmarks.ts`):
+   - Uses MediaPipe Face Mesh to detect 468 facial landmarks
+   - Tracks eyes, mouth, nose, and head orientation
+   - Runs at 30 FPS for real-time detection
+
+2. **Pose Detection** (`src/attention/poseLandmarks.ts`):
+   - Uses MediaPipe Pose to detect body landmarks (shoulders, hips, spine)
+   - Tracks posture and body position
+   - Detects slouching and leaning
+
+3. **Attention Analysis** (`src/attention/useAttentionDetector.ts`):
+   - **Eye closure**: EAR < threshold for 3.5s = "nodding off", 5s = "sleeping"
+   - **Head nodding**: Forward pitch > 10° indicates drowsiness
+   - **Posture**: Slouch angle > threshold for 3s triggers warning
+   - **Presence**: Detects if user leaves frame
+   - Produces `AttentionSnapshot` objects: `{ state: 'awake' | 'noddingOff' | 'sleeping', confidence, ear, eyesClosedSec, ... }`
+
+4. **Warning System** (`src/attention/voiceWarnings.ts`):
+   - **Voice warnings**: Text-to-speech alerts (e.g., "Please open your eyes")
+   - **5-second grace period**: Time to correct behavior before alarm
+   - **Audio fallback**: Beep patterns if speech synthesis fails
+   - **Loud alarm**: Blaring sound + challenge prompt if grace period expires
+
+5. **Calibration**:
+   - 4-second calibration on first use
+   - Records baseline EAR, head pitch, and posture
+   - Personalizes thresholds for better accuracy
+
+## Detection States
+
+- **awake**: Normal attention, eyes open, good posture
+- **noddingOff**: Eyes closed 3.5+ seconds OR head nodding forward
+- **sleeping**: Eyes closed 5+ seconds, high confidence drowsiness
+
+## Attention Metrics
+
+```typescript
+{
+  state: 'awake' | 'noddingOff' | 'sleeping',
+  confidence: number,           // 0-1 probability
+  ear: number,                  // Eye aspect ratio
+  eyesClosedSec: number,        // Duration eyes closed
+  headTiltAngle: number,        // Left/right tilt in degrees
+  headPitchAngle: number,       // Forward/backward pitch
+  isHeadNodding: boolean,       // Forward nod detected
+  isSlouched: boolean,          // Poor posture detected
+  isPresent: boolean,           // Body in frame
+  activeWarning: string | null  // Current voice warning
+}
+```
+
+## File Structure (Attention Detection)
+
+```
+src/
+├── app/attention-demo/
+│   └── page.tsx              # Main UI with canvas overlay
+├── attention/
+│   ├── faceLandmarks.ts      # MediaPipe face detection
+│   ├── poseLandmarks.ts      # MediaPipe body detection
+│   ├── ear.ts                # Eye aspect ratio
+│   ├── headTilt.ts           # Side-to-side tilt
+│   ├── headPitch.ts          # Forward/backward nod
+│   ├── yawning.ts            # Mouth opening detection
+│   ├── gazeDirection.ts      # Looking away detection
+│   ├── faceDistance.ts       # Too close/far warning
+│   ├── postureAnalysis.ts    # Slouching/leaning
+│   ├── voiceWarnings.ts      # Voice + audio alerts
+│   ├── useWebcamStream.ts    # Camera access
+│   └── useAttentionDetector.ts # Main orchestrator
+└── types/
+    └── attention.ts          # TypeScript interfaces
+```
+
+---
+
+# 📱 Chrome Extension (Screen Tracking)
 
 ## Structure
 
@@ -16,7 +127,7 @@ src/
 └── content.ts              # Content script (relays messages to page)
 ```
 
-## Setup
+## Setup (Extension)
 
 ```bash
 npm install
@@ -24,6 +135,8 @@ npm run build
 ```
 
 This will generate a `dist/` folder with your built extension.
+
+**Note**: For the web app (attention detection), use `npm run dev` instead (see Webcam section above).
 
 ## Load in Chrome
 
