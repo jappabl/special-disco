@@ -18,12 +18,8 @@ const enableBtn = document.getElementById("enable-btn")!;
 const analyticsBtn = document.getElementById("analytics-btn")!;
 
 // Session context elements
-const currentTaskDisplay = document.getElementById("current-task")!;
-const setTaskBtn = document.getElementById("set-task-btn")!;
-const taskModal = document.getElementById("task-modal")!;
-const taskInput = document.getElementById("task-input") as HTMLInputElement;
-const submitTaskBtn = document.getElementById("submit-task")!;
-const cancelTaskBtn = document.getElementById("cancel-task")!;
+const taskInputInline = document.getElementById("task-input-inline") as HTMLInputElement;
+const saveTaskBtn = document.getElementById("save-task-btn")!;
 
 // Puzzle modal elements
 const puzzleModal = document.getElementById("puzzle-modal")!;
@@ -142,42 +138,20 @@ async function loadSessionContext() {
     const context = result.sessionContext as SessionContext | undefined;
 
     if (context && context.declared) {
-      currentTaskDisplay.textContent = context.workTask;
-    } else {
-      currentTaskDisplay.textContent = "Not set";
+      taskInputInline.value = context.workTask;
     }
   } catch (error) {
     console.error("[Popup] Error loading session context:", error);
   }
 }
 
-function showTaskModal() {
-  taskModal.classList.remove("hidden");
-
-  // Load existing task if any
-  chrome.storage.local.get("sessionContext", (result) => {
-    const context = result.sessionContext as SessionContext | undefined;
-    if (context && context.declared) {
-      taskInput.value = context.workTask;
-    }
-  });
-
-  taskInput.focus();
-}
-
-function hideTaskModal() {
-  taskModal.classList.add("hidden");
-  taskInput.value = "";
-}
-
 async function saveSessionContext() {
-  const workTask = taskInput.value.trim();
+  const workTask = taskInputInline.value.trim();
 
   if (!workTask) {
     // Allow blank task - clear the context
     await chrome.storage.local.remove("sessionContext");
-    currentTaskDisplay.textContent = "Not set";
-    hideTaskModal();
+    taskInputInline.placeholder = "Enter your current task (optional)";
     console.log("[Popup] Session context cleared - using default productivity context");
     return;
   }
@@ -189,9 +163,6 @@ async function saveSessionContext() {
   };
 
   await chrome.storage.local.set({ sessionContext: context });
-  currentTaskDisplay.textContent = workTask;
-  hideTaskModal();
-
   console.log("[Popup] Session context saved:", context);
 }
 
@@ -333,25 +304,15 @@ enableBtn.addEventListener("click", () => {
   });
 });
 
-// Set task button handler
-setTaskBtn.addEventListener("click", () => {
-  showTaskModal();
-});
-
-// Submit task button handler
-submitTaskBtn.addEventListener("click", () => {
-  saveSessionContext();
-});
-
-// Cancel task button handler
-cancelTaskBtn.addEventListener("click", () => {
-  hideTaskModal();
+// Save task button handler
+saveTaskBtn.addEventListener("click", () => {
+  void saveSessionContext();
 });
 
 // Enter key handler for task input
-taskInput.addEventListener("keypress", (e) => {
+taskInputInline.addEventListener("keypress", (e) => {
   if (e.key === "Enter") {
-    saveSessionContext();
+    void saveSessionContext();
   }
 });
 
@@ -395,3 +356,184 @@ if (webTrackingToggle) {
 
   webTrackingToggle.addEventListener("change", saveTrackingToggles);
 }
+
+// ===== DOMAIN MANAGEMENT =====
+
+const manageWhitelistBtn = document.getElementById("manage-whitelist-btn")!;
+const manageBlacklistBtn = document.getElementById("manage-blacklist-btn")!;
+const whitelistModal = document.getElementById("whitelist-modal")!;
+const blacklistModal = document.getElementById("blacklist-modal")!;
+const closeWhitelistBtn = document.getElementById("close-whitelist")!;
+const closeBlacklistBtn = document.getElementById("close-blacklist")!;
+const addWhitelistBtn = document.getElementById("add-whitelist-btn")!;
+const addBlacklistBtn = document.getElementById("add-blacklist-btn")!;
+const whitelistContainer = document.getElementById("whitelist-container")!;
+const blacklistContainer = document.getElementById("blacklist-container")!;
+
+// Default off-task domains (used to initialize blacklist on first load)
+const DEFAULT_OFFTASK_DOMAINS = [
+  "youtube.com", "netflix.com", "reddit.com", "twitter.com", "x.com",
+  "facebook.com", "instagram.com", "tiktok.com", "twitch.tv",
+  "9gag.com", "imgur.com", "pinterest.com", "tumblr.com",
+  "hulu.com", "disneyplus.com", "primevideo.com", "hbomax.com",
+  "discord.com", "telegram.org", "whatsapp.com", "messenger.com",
+  "espn.com", "bleacherreport.com", "nfl.com", "nba.com",
+  "cnn.com", "nytimes.com", "buzzfeed.com"
+];
+
+interface DomainLists {
+  whitelist: string[];
+  blacklist: string[];
+}
+
+async function loadDomainLists(): Promise<DomainLists> {
+  const result = await chrome.storage.local.get(["domainWhitelist", "domainBlacklist", "domainsInitialized"]);
+
+  // Initialize blacklist with defaults on first load
+  if (!result.domainsInitialized) {
+    await chrome.storage.local.set({
+      domainBlacklist: DEFAULT_OFFTASK_DOMAINS,
+      domainsInitialized: true
+    });
+    return {
+      whitelist: result.domainWhitelist || [],
+      blacklist: DEFAULT_OFFTASK_DOMAINS
+    };
+  }
+
+  return {
+    whitelist: result.domainWhitelist || [],
+    blacklist: result.domainBlacklist || []
+  };
+}
+
+async function saveDomainLists(lists: DomainLists) {
+  await chrome.storage.local.set({
+    domainWhitelist: lists.whitelist,
+    domainBlacklist: lists.blacklist
+  });
+}
+
+function renderDomainList(container: HTMLElement, domains: string[], canRemove: boolean, onRemove?: (domain: string) => void) {
+  container.innerHTML = "";
+
+  if (domains.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "domain-empty";
+    empty.textContent = canRemove ? "No domains added" : "Loading...";
+    container.appendChild(empty);
+    return;
+  }
+
+  domains.sort().forEach(domain => {
+    const item = document.createElement("div");
+    item.className = "domain-item";
+
+    const name = document.createElement("span");
+    name.className = "domain-name";
+    name.textContent = domain;
+
+    item.appendChild(name);
+
+    if (canRemove && onRemove) {
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "domain-remove";
+      removeBtn.innerHTML = "&times;";
+      removeBtn.title = `Remove ${domain}`;
+      removeBtn.addEventListener("click", () => onRemove(domain));
+      item.appendChild(removeBtn);
+    }
+
+    container.appendChild(item);
+  });
+}
+
+async function refreshWhitelistUI() {
+  const lists = await loadDomainLists();
+  renderDomainList(whitelistContainer, lists.whitelist, true, async (domain) => {
+    lists.whitelist = lists.whitelist.filter(d => d !== domain);
+    await saveDomainLists(lists);
+    refreshWhitelistUI();
+  });
+}
+
+async function refreshBlacklistUI() {
+  const lists = await loadDomainLists();
+  renderDomainList(blacklistContainer, lists.blacklist, true, async (domain) => {
+    lists.blacklist = lists.blacklist.filter(d => d !== domain);
+    await saveDomainLists(lists);
+    refreshBlacklistUI();
+  });
+}
+
+function showWhitelistModal() {
+  whitelistModal.classList.remove("hidden");
+  refreshWhitelistUI();
+}
+
+function hideWhitelistModal() {
+  whitelistModal.classList.add("hidden");
+}
+
+function showBlacklistModal() {
+  blacklistModal.classList.remove("hidden");
+  refreshBlacklistUI();
+}
+
+function hideBlacklistModal() {
+  blacklistModal.classList.add("hidden");
+}
+
+async function addDomainToList(listType: "whitelist" | "blacklist") {
+  const domain = prompt(`Enter domain to add to ${listType}:\n(e.g., "github.com", "stackoverflow.com")`);
+
+  if (!domain) return;
+
+  const cleanDomain = domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0];
+
+  if (!cleanDomain || !cleanDomain.includes(".")) {
+    alert("Invalid domain format. Please enter a valid domain like 'github.com'");
+    return;
+  }
+
+  const lists = await loadDomainLists();
+
+  if (listType === "whitelist") {
+    if (lists.whitelist.includes(cleanDomain)) {
+      alert("Domain already in whitelist");
+      return;
+    }
+    if (lists.blacklist.includes(cleanDomain)) {
+      alert("Domain is already in blacklist. Remove it from blacklist first.");
+      return;
+    }
+    lists.whitelist.push(cleanDomain);
+  } else {
+    if (lists.blacklist.includes(cleanDomain)) {
+      alert("Domain already in blacklist");
+      return;
+    }
+    if (lists.whitelist.includes(cleanDomain)) {
+      alert("Domain is already in whitelist. Remove it from whitelist first.");
+      return;
+    }
+    lists.blacklist.push(cleanDomain);
+  }
+
+  await saveDomainLists(lists);
+
+  // Refresh the appropriate UI
+  if (listType === "whitelist") {
+    refreshWhitelistUI();
+  } else {
+    refreshBlacklistUI();
+  }
+}
+
+// Event listeners
+manageWhitelistBtn.addEventListener("click", showWhitelistModal);
+manageBlacklistBtn.addEventListener("click", showBlacklistModal);
+closeWhitelistBtn.addEventListener("click", hideWhitelistModal);
+closeBlacklistBtn.addEventListener("click", hideBlacklistModal);
+addWhitelistBtn.addEventListener("click", () => addDomainToList("whitelist"));
+addBlacklistBtn.addEventListener("click", () => addDomainToList("blacklist"));

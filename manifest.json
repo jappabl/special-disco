@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Focus Tracker",
+  "name": "Lumina",
   "version": "1.0.0",
-  "description": "Tracks screen activity with AI-powered focus detection to keep you productive",
+  "description": "Stay focused, stay brilliant. AI-powered focus tracking to keep you productive",
+  "icons": {
+    "16": "icon-16.png",
+    "32": "icon-32.png",
+    "48": "icon-48.png",
+    "128": "icon-128.png"
+  },
   "permissions": [
     "tabs",
     "idle",
@@ -29,6 +35,12 @@
   ],
   "action": {
     "default_popup": "src/popup.html",
-    "default_title": "Focus Tracker"
+    "default_title": "Lumina",
+    "default_icon": {
+      "16": "icon-16.png",
+      "32": "icon-32.png",
+      "48": "icon-48.png",
+      "128": "icon-128.png"
+    }
   }
 }
